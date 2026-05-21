@@ -1,8 +1,8 @@
-module.exports = {
+export default {
   apps: [
     {
       name: "ramein-be",
-      cwd: __dirname,
+      cwd: process.cwd(),
       script: "src/server.js",
       instances: 1,
       exec_mode: "fork",
