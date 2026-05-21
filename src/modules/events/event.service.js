@@ -1,83 +1,364 @@
-import Event from "../../models/Event.js";
-import Organizer from "../../models/Organizer.js";
+import { query, transaction } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
 
-async function listEvents(query) {
-  const filter = {};
-  if (query.status) filter.status = query.status;
-  if (query.organizerId) filter.organizerId = query.organizerId;
-  if (query.search) filter.$text = { $search: query.search };
+function normalizeEventRow(row) {
+  return {
+    _id: row.id,
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    categoryId: row.category_id,
+    organizerId: row.organizer_id,
+    createdBy: row.created_by,
+    cityId: row.city_id,
+    venueId: row.venue_id,
+    addressDetail: row.address_detail,
+    bannerUrl: row.banner_url,
+    startDateTime: row.start_datetime,
+    endDateTime: row.end_datetime,
+    status: row.status,
+    isPublished: Boolean(row.is_published),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    category: {
+      _id: row.category_id,
+      id: row.category_id,
+      name: row.category_name
+    },
+    city: {
+      _id: row.city_id,
+      id: row.city_id,
+      name: row.city_name
+    },
+    venue: {
+      _id: row.venue_id,
+      id: row.venue_id,
+      name: row.venue_name
+    },
+    organizer: {
+      _id: row.organizer_id,
+      id: row.organizer_id,
+      name: row.organizer_name,
+      contactName: row.organizer_contact_name,
+      contactEmail: row.organizer_contact_email,
+      contactPhone: row.organizer_contact_phone
+    },
+    creator: {
+      _id: row.created_by,
+      id: row.created_by,
+      name: row.creator_name,
+      email: row.creator_email
+    }
+  };
+}
 
-  return Event.find(filter)
-    .populate("categoryId cityId venueId", "name")
-    .populate("organizerId", "name contactName contactEmail contactPhone")
-    .populate("createdBy", "name email")
-    .sort({ startDateTime: 1 });
+function normalizeTicketRow(row) {
+  return {
+    _id: row.id,
+    id: row.id,
+    eventId: row.event_id,
+    name: row.name,
+    price: Number(row.price),
+    quota: Number(row.quota),
+    sold: Number(row.sold),
+    saleStartAt: row.sale_start_at,
+    saleEndAt: row.sale_end_at,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
+async function attachTicketTypes(events) {
+  if (events.length === 0) return events;
+
+  const eventIds = events.map((event) => event.id);
+  const placeholders = eventIds.map(() => "?").join(", ");
+  const ticketRows = await query(
+    `SELECT * FROM event_ticket_types WHERE event_id IN (${placeholders}) ORDER BY id ASC`,
+    eventIds
+  );
+
+  const ticketMap = new Map();
+  for (const ticket of ticketRows) {
+    const normalized = normalizeTicketRow(ticket);
+    const list = ticketMap.get(normalized.eventId) || [];
+    list.push(normalized);
+    ticketMap.set(normalized.eventId, list);
+  }
+
+  return events.map((event) => ({
+    ...event,
+    ticketTypes: ticketMap.get(event.id) || []
+  }));
+}
+
+function buildEventWhere(queryParams) {
+  const clauses = [];
+  const values = [];
+
+  if (queryParams.status) {
+    clauses.push("e.status = ?");
+    values.push(queryParams.status);
+  }
+
+  if (queryParams.organizerId) {
+    clauses.push("e.organizer_id = ?");
+    values.push(Number(queryParams.organizerId));
+  }
+
+  if (queryParams.search) {
+    clauses.push("(e.title LIKE ? OR e.description LIKE ?)");
+    const like = `%${queryParams.search}%`;
+    values.push(like, like);
+  }
+
+  return {
+    where: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
+    values
+  };
+}
+
+async function listEvents(queryParams) {
+  const { where, values } = buildEventWhere(queryParams);
+  const rows = await query(
+    `SELECT
+      e.*,
+      c.name AS category_name,
+      ci.name AS city_name,
+      v.name AS venue_name,
+      o.name AS organizer_name,
+      o.contact_name AS organizer_contact_name,
+      o.contact_email AS organizer_contact_email,
+      o.contact_phone AS organizer_contact_phone,
+      u.name AS creator_name,
+      u.email AS creator_email
+    FROM events e
+    JOIN categories c ON c.id = e.category_id
+    JOIN cities ci ON ci.id = e.city_id
+    JOIN venues v ON v.id = e.venue_id
+    JOIN organizers o ON o.id = e.organizer_id
+    JOIN users u ON u.id = e.created_by
+    ${where}
+    ORDER BY e.start_datetime ASC`,
+    values
+  );
+
+  const events = rows.map(normalizeEventRow);
+  return attachTicketTypes(events);
 }
 
 async function getEventById(id) {
-  const event = await Event.findById(id)
-    .populate("categoryId cityId venueId", "name")
-    .populate("organizerId", "name contactName contactEmail contactPhone")
-    .populate("createdBy", "name email");
-  if (!event) throw new ApiError(404, "Event not found");
-  return event;
+  const rows = await query(
+    `SELECT
+      e.*,
+      c.name AS category_name,
+      ci.name AS city_name,
+      v.name AS venue_name,
+      o.name AS organizer_name,
+      o.contact_name AS organizer_contact_name,
+      o.contact_email AS organizer_contact_email,
+      o.contact_phone AS organizer_contact_phone,
+      u.name AS creator_name,
+      u.email AS creator_email
+    FROM events e
+    JOIN categories c ON c.id = e.category_id
+    JOIN cities ci ON ci.id = e.city_id
+    JOIN venues v ON v.id = e.venue_id
+    JOIN organizers o ON o.id = e.organizer_id
+    JOIN users u ON u.id = e.created_by
+    WHERE e.id = ?
+    LIMIT 1`,
+    [Number(id)]
+  );
+
+  if (rows.length === 0) throw new ApiError(404, "Event not found");
+
+  const events = await attachTicketTypes([normalizeEventRow(rows[0])]);
+  return events[0];
 }
 
 async function createEvent(payload, userId) {
-  const organizer = await Organizer.findById(payload.organizerId);
-  if (!organizer || !organizer.isActive) {
+  const organizerRows = await query(
+    "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
+    [Number(payload.organizerId)]
+  );
+  const organizer = organizerRows[0];
+  if (!organizer || !organizer.is_active) {
     throw new ApiError(400, "Invalid organizer");
   }
 
-  return Event.create({
-    ...payload,
-    createdBy: userId,
-    status: "pending",
-    isPublished: false
+  const eventId = await transaction(async (connection) => {
+    const [eventResult] = await connection.execute(
+      `INSERT INTO events (
+        title,
+        description,
+        category_id,
+        organizer_id,
+        created_by,
+        city_id,
+        venue_id,
+        address_detail,
+        banner_url,
+        start_datetime,
+        end_datetime,
+        status,
+        is_published
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+      [
+        payload.title,
+        payload.description,
+        Number(payload.categoryId),
+        Number(payload.organizerId),
+        Number(userId),
+        Number(payload.cityId),
+        Number(payload.venueId),
+        payload.addressDetail,
+        payload.bannerUrl || null,
+        payload.startDateTime,
+        payload.endDateTime
+      ]
+    );
+
+    for (const ticket of payload.ticketTypes || []) {
+      await connection.execute(
+        `INSERT INTO event_ticket_types (
+          event_id,
+          name,
+          price,
+          quota,
+          sold,
+          sale_start_at,
+          sale_end_at
+        ) VALUES (?, ?, ?, ?, 0, ?, ?)`,
+        [
+          eventResult.insertId,
+          ticket.name,
+          ticket.price,
+          ticket.quota,
+          ticket.saleStartAt,
+          ticket.saleEndAt
+        ]
+      );
+    }
+
+    return eventResult.insertId;
   });
+
+  return getEventById(eventId);
 }
 
 function canManageEvent(event, user) {
-  return user.role === "admin" || event.createdBy.toString() === user._id.toString();
+  return user.role === "admin" || Number(event.createdBy) === Number(user.id);
+}
+
+function buildEventUpdate(payload, user) {
+  const fields = [];
+  const values = [];
+
+  const map = {
+    title: "title",
+    description: "description",
+    categoryId: "category_id",
+    organizerId: "organizer_id",
+    cityId: "city_id",
+    venueId: "venue_id",
+    addressDetail: "address_detail",
+    bannerUrl: "banner_url",
+    startDateTime: "start_datetime",
+    endDateTime: "end_datetime",
+    status: "status",
+    isPublished: "is_published"
+  };
+
+  for (const [key, column] of Object.entries(map)) {
+    if (payload[key] !== undefined) {
+      fields.push(`${column} = ?`);
+      if (["categoryId", "organizerId", "cityId", "venueId"].includes(key)) {
+        values.push(Number(payload[key]));
+      } else if (key === "isPublished") {
+        values.push(payload[key] ? 1 : 0);
+      } else {
+        values.push(payload[key]);
+      }
+    }
+  }
+
+  if (user.role !== "admin") {
+    fields.push("status = 'pending'");
+    fields.push("is_published = 0");
+  }
+
+  return { fields, values };
 }
 
 async function updateEvent(id, payload, user) {
-  const event = await Event.findById(id);
-  if (!event) throw new ApiError(404, "Event not found");
-  if (!canManageEvent(event, user)) throw new ApiError(403, "Forbidden");
+  const existing = await getEventById(id);
+  if (!canManageEvent(existing, user)) throw new ApiError(403, "Forbidden");
 
-  if (payload.organizerId) {
-    const organizer = await Organizer.findById(payload.organizerId);
-    if (!organizer || !organizer.isActive) {
+  if (payload.organizerId !== undefined) {
+    const organizerRows = await query(
+      "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
+      [Number(payload.organizerId)]
+    );
+    const organizer = organizerRows[0];
+    if (!organizer || !organizer.is_active) {
       throw new ApiError(400, "Invalid organizer");
     }
   }
 
-  Object.assign(event, payload);
-  if (user.role !== "admin") {
-    event.status = "pending";
-    event.isPublished = false;
-  }
-  await event.save();
-  return event;
+  const { fields, values } = buildEventUpdate(payload, user);
+
+  await transaction(async (connection) => {
+    if (fields.length > 0) {
+      await connection.execute(`UPDATE events SET ${fields.join(", ")} WHERE id = ?`, [...values, Number(id)]);
+    }
+
+    if (payload.ticketTypes !== undefined) {
+      await connection.execute("DELETE FROM event_ticket_types WHERE event_id = ?", [Number(id)]);
+      for (const ticket of payload.ticketTypes) {
+        await connection.execute(
+          `INSERT INTO event_ticket_types (
+            event_id,
+            name,
+            price,
+            quota,
+            sold,
+            sale_start_at,
+            sale_end_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            Number(id),
+            ticket.name,
+            ticket.price,
+            ticket.quota,
+            ticket.sold || 0,
+            ticket.saleStartAt,
+            ticket.saleEndAt
+          ]
+        );
+      }
+    }
+  });
+
+  return getEventById(id);
 }
 
 async function deleteEvent(id, user) {
-  const event = await Event.findById(id);
-  if (!event) throw new ApiError(404, "Event not found");
+  const event = await getEventById(id);
   if (!canManageEvent(event, user)) throw new ApiError(403, "Forbidden");
-  await event.deleteOne();
+  await query("DELETE FROM events WHERE id = ?", [Number(id)]);
 }
 
 async function publishEvent(id, adminUser) {
   if (adminUser.role !== "admin") throw new ApiError(403, "Forbidden");
-  const event = await Event.findById(id);
-  if (!event) throw new ApiError(404, "Event not found");
-  event.status = "published";
-  event.isPublished = true;
-  await event.save();
-  return event;
+
+  const result = await query(
+    "UPDATE events SET status = 'published', is_published = 1 WHERE id = ?",
+    [Number(id)]
+  );
+  if (result.affectedRows === 0) throw new ApiError(404, "Event not found");
+
+  return getEventById(id);
 }
 
 export default {

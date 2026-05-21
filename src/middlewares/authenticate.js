@@ -1,7 +1,7 @@
 import jwt from "jsonwebtoken";
 import env from "../config/env.js";
 import ApiError from "../utils/apiError.js";
-import User from "../models/User.js";
+import { query } from "../db/mysql.js";
 
 async function authenticate(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -13,11 +13,25 @@ async function authenticate(req, res, next) {
 
   try {
     const payload = jwt.verify(token, env.jwtAccessSecret);
-    const user = await User.findById(payload.sub).select("-password");
-    if (!user || !user.isActive) {
+    const rows = await query(
+      "SELECT id, name, email, phone, role, is_active, created_at, updated_at FROM users WHERE id = ? LIMIT 1",
+      [Number(payload.sub)]
+    );
+    const user = rows[0];
+    if (!user || !user.is_active) {
       return next(new ApiError(401, "Invalid user"));
     }
-    req.user = user;
+    req.user = {
+      _id: user.id,
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phone: user.phone,
+      role: user.role,
+      isActive: Boolean(user.is_active),
+      createdAt: user.created_at,
+      updatedAt: user.updated_at
+    };
     return next();
   } catch (error) {
     return next(new ApiError(401, "Invalid token"));

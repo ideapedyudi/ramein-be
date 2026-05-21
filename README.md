@@ -2,7 +2,7 @@
 
 Backend aplikasi event/konser dengan:
 - Express.js (REST API)
-- MongoDB (Mongoose)
+- MySQL (query SQL mentah, tanpa ORM)
 - JWT Auth (role `admin` dan `user`)
 - Master data + event management
 - Transaksi tiket
@@ -21,18 +21,26 @@ npm install
 cp .env.example .env
 ```
 
-3. Jalankan server
+3. Inisialisasi database + schema:
+```bash
+npm run db:init
+```
+
+4. Jalankan server
 ```bash
 npm run dev
 ```
 
 ## Testing
 
+Untuk test, siapkan database terpisah (misalnya `ramein_test`) lalu set env:
 ```bash
+MYSQL_DATABASE=ramein_test
+NODE_ENV=test
 npm test
 ```
 
-Testing memakai `mongodb-memory-server`, jadi tidak perlu MongoDB lokal saat test.
+`tests/setup.js` akan membuat tabel dari `src/db/schema.sql` dan membersihkan data tiap test.
 
 ## Base URL
 
@@ -42,7 +50,7 @@ Testing memakai `mongodb-memory-server`, jadi tidak perlu MongoDB lokal saat tes
 
 - Auth: `/auth/register`, `/auth/login`, `/auth/refresh-token`, `/auth/logout`
 - User: `/users/me`, `/users/admin/list`
-- Master data: `/master/categories`, `/master/cities`, `/master/venues`
+- Master data: `/master/categories`, `/master/cities`, `/master/venues`, `/master/organizers`
 - Event: `/events`, `/events/:id`, `/events/:id/publish`
 - Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`
 - Payment webhook: `/payments/midtrans/notification`

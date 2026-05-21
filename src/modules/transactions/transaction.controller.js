@@ -8,7 +8,7 @@ const createTransaction = asyncHandler(async (req, res) => {
 });
 
 const getMyTransactions = asyncHandler(async (req, res) => {
-  const data = await transactionService.getMyTransactions(req.user._id);
+  const data = await transactionService.getMyTransactions(req.user.id);
   return successResponse(res, 200, "Transaction list", data);
 });
 

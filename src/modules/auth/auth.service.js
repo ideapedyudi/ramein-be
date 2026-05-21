@@ -1,75 +1,93 @@
 import jwt from "jsonwebtoken";
-import User from "../../models/User.js";
+import bcrypt from "bcryptjs";
+import { query } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
 import env from "../../config/env.js";
 
 function signAccessToken(user) {
   return jwt.sign(
-    { sub: user._id.toString(), role: user.role, email: user.email },
+    { sub: String(user.id), role: user.role, email: user.email },
     env.jwtAccessSecret,
     { expiresIn: env.jwtAccessExpiresIn }
   );
 }
 
 function signRefreshToken(user) {
-  return jwt.sign({ sub: user._id.toString() }, env.jwtRefreshSecret, {
+  return jwt.sign({ sub: String(user.id) }, env.jwtRefreshSecret, {
     expiresIn: env.jwtRefreshExpiresIn
   });
 }
 
+function mapUser(row) {
+  return {
+    _id: row.id,
+    id: row.id,
+    name: row.name,
+    email: row.email,
+    phone: row.phone,
+    role: row.role,
+    isActive: Boolean(row.is_active),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+
 async function register(payload) {
-  const existingUser = await User.findOne({ email: payload.email.toLowerCase() });
-  if (existingUser) {
+  const email = payload.email.toLowerCase();
+  const existing = await query("SELECT id FROM users WHERE email = ? LIMIT 1", [email]);
+  if (existing.length > 0) {
     throw new ApiError(409, "Email already registered");
   }
 
-  const user = await User.create({
-    name: payload.name,
-    email: payload.email.toLowerCase(),
-    password: payload.password,
-    phone: payload.phone || null
-  });
+  const hashedPassword = await bcrypt.hash(payload.password, 10);
+  const result = await query(
+    "INSERT INTO users (name, email, password, phone, role, is_active) VALUES (?, ?, ?, ?, 'user', 1)",
+    [payload.name, email, hashedPassword, payload.phone || null]
+  );
+  const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [result.insertId]);
 
-  return user;
+  return mapUser(rows[0]);
 }
 
 async function createFirstUser(payload) {
-  const userCount = await User.countDocuments();
-  if (userCount > 0) {
+  const countRows = await query("SELECT COUNT(*) AS total FROM users");
+  if (Number(countRows[0].total) > 0) {
     throw new ApiError(409, "First user already initialized");
   }
 
-  const user = await User.create({
-    name: payload.name,
-    email: payload.email.toLowerCase(),
-    password: payload.password,
-    phone: payload.phone || null,
-    role: "admin"
-  });
+  const hashedPassword = await bcrypt.hash(payload.password, 10);
+  const email = payload.email.toLowerCase();
+  const result = await query(
+    "INSERT INTO users (name, email, password, phone, role, is_active) VALUES (?, ?, ?, ?, 'admin', 1)",
+    [payload.name, email, hashedPassword, payload.phone || null]
+  );
+  const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [result.insertId]);
 
-  return user;
+  return mapUser(rows[0]);
 }
 
 async function login(email, password) {
-  const user = await User.findOne({ email: email.toLowerCase() });
-  if (!user || !user.isActive) {
+  const rows = await query("SELECT * FROM users WHERE email = ? LIMIT 1", [email.toLowerCase()]);
+  const user = rows[0];
+  if (!user || !user.is_active) {
     throw new ApiError(401, "Invalid credentials");
   }
 
-  const isPasswordMatch = await user.comparePassword(password);
+  const isPasswordMatch = await bcrypt.compare(password, user.password);
   if (!isPasswordMatch) {
     throw new ApiError(401, "Invalid credentials");
   }
 
-  const accessToken = signAccessToken(user);
-  const refreshToken = signRefreshToken(user);
+  const normalizedUser = mapUser(user);
+  const accessToken = signAccessToken(normalizedUser);
+  const refreshToken = signRefreshToken(normalizedUser);
 
   return {
     user: {
-      id: user._id,
-      name: user.name,
-      email: user.email,
-      role: user.role
+      id: normalizedUser.id,
+      name: normalizedUser.name,
+      email: normalizedUser.email,
+      role: normalizedUser.role
     },
     accessToken,
     refreshToken
@@ -79,12 +97,13 @@ async function login(email, password) {
 async function refreshToken(token) {
   try {
     const payload = jwt.verify(token, env.jwtRefreshSecret);
-    const user = await User.findById(payload.sub);
-    if (!user || !user.isActive) {
+    const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [Number(payload.sub)]);
+    const user = rows[0];
+    if (!user || !user.is_active) {
       throw new ApiError(401, "Invalid refresh token");
     }
 
-    const accessToken = signAccessToken(user);
+    const accessToken = signAccessToken(mapUser(user));
     return { accessToken };
   } catch (error) {
     throw new ApiError(401, "Invalid refresh token");

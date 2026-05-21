@@ -1,10 +1,12 @@
 import request from "supertest";
 import app from "../src/app.js";
-import User from "../src/models/User.js";
-import Category from "../src/models/Category.js";
-import City from "../src/models/City.js";
-import Venue from "../src/models/Venue.js";
-import Organizer from "../src/models/Organizer.js";
+import {
+  createUser,
+  createCategory,
+  createCity,
+  createVenue,
+  createOrganizer
+} from "./helpers/dbSeed.js";
 
 async function login(email, password) {
   const res = await request(app).post("/api/v1/auth/login").send({ email, password });
@@ -20,10 +22,10 @@ describe("Event API", () => {
     });
     const token = await login("owner@test.com", "password123");
 
-    const category = await Category.create({ name: "Music" });
-    const organizer = await Organizer.create({ name: "Promotor A" });
-    const city = await City.create({ name: "Jakarta" });
-    const venue = await Venue.create({ name: "Stadium", cityId: city._id, address: "Street 1" });
+    const categoryId = await createCategory("Music");
+    const organizerId = await createOrganizer({ name: "Promotor A" });
+    const cityId = await createCity("Jakarta");
+    const venueId = await createVenue({ name: "Stadium", cityId, address: "Street 1" });
 
     const response = await request(app)
       .post("/api/v1/events")
@@ -31,10 +33,10 @@ describe("Event API", () => {
       .send({
         title: "Concert 1",
         description: "Awesome concert",
-        categoryId: category._id.toString(),
-        organizerId: organizer._id.toString(),
-        cityId: city._id.toString(),
-        venueId: venue._id.toString(),
+        categoryId,
+        organizerId,
+        cityId,
+        venueId,
         addressDetail: "Main road",
         startDateTime: "2030-01-10T19:00:00.000Z",
         endDateTime: "2030-01-10T22:00:00.000Z",
@@ -54,23 +56,23 @@ describe("Event API", () => {
   });
 
   test("user cannot edit another user's event", async () => {
-    const owner = await User.create({
+    const owner = await createUser({
       name: "Owner",
       email: "owner2@test.com",
       password: "password123",
       role: "user"
     });
-    const otherUser = await User.create({
+    const otherUser = await createUser({
       name: "Other",
       email: "other@test.com",
       password: "password123",
       role: "user"
     });
 
-    const category = await Category.create({ name: "Seminar" });
-    const organizer = await Organizer.create({ name: "Promotor B" });
-    const city = await City.create({ name: "Bandung" });
-    const venue = await Venue.create({ name: "Hall", cityId: city._id, address: "Street 2" });
+    const categoryId = await createCategory("Seminar");
+    const organizerId = await createOrganizer({ name: "Promotor B" });
+    const cityId = await createCity("Bandung");
+    const venueId = await createVenue({ name: "Hall", cityId, address: "Street 2" });
 
     const createRes = await request(app).post("/api/v1/auth/login").send({
       email: "owner2@test.com",
@@ -84,10 +86,10 @@ describe("Event API", () => {
       .send({
         title: "Owner Event",
         description: "Owner event desc",
-        categoryId: category._id.toString(),
-        organizerId: organizer._id.toString(),
-        cityId: city._id.toString(),
-        venueId: venue._id.toString(),
+        categoryId,
+        organizerId,
+        cityId,
+        venueId,
         addressDetail: "Street event",
         startDateTime: "2030-03-10T19:00:00.000Z",
         endDateTime: "2030-03-10T22:00:00.000Z",
@@ -109,30 +111,29 @@ describe("Event API", () => {
       .send({ title: "Hijacked title" });
 
     expect(editRes.statusCode).toBe(403);
-    expect(owner._id.toString()).not.toBe(otherUser._id.toString());
+    expect(owner._id).not.toBe(otherUser._id);
   });
 
   test("admin can publish event", async () => {
-    const admin = await User.create({
+    await createUser({
       name: "Admin",
       email: "admin@test.com",
       password: "password123",
       role: "admin"
     });
-    await admin.save();
     const adminToken = await login("admin@test.com", "password123");
 
-    const owner = await User.create({
+    await createUser({
       name: "Owner Publish",
       email: "owner3@test.com",
       password: "password123",
       role: "user"
     });
 
-    const category = await Category.create({ name: "Sport" });
-    const organizer = await Organizer.create({ name: "Promotor C" });
-    const city = await City.create({ name: "Surabaya" });
-    const venue = await Venue.create({ name: "Arena", cityId: city._id, address: "Street 3" });
+    const categoryId = await createCategory("Sport");
+    const organizerId = await createOrganizer({ name: "Promotor C" });
+    const cityId = await createCity("Surabaya");
+    const venueId = await createVenue({ name: "Arena", cityId, address: "Street 3" });
 
     const event = await request(app)
       .post("/api/v1/events")
@@ -140,10 +141,10 @@ describe("Event API", () => {
       .send({
         title: "Pending Event",
         description: "Pending",
-        categoryId: category._id.toString(),
-        organizerId: organizer._id.toString(),
-        cityId: city._id.toString(),
-        venueId: venue._id.toString(),
+        categoryId,
+        organizerId,
+        cityId,
+        venueId,
         addressDetail: "Arena address",
         startDateTime: "2030-04-10T19:00:00.000Z",
         endDateTime: "2030-04-10T22:00:00.000Z",

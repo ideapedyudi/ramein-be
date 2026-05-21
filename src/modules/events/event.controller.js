@@ -13,7 +13,7 @@ const getEvent = asyncHandler(async (req, res) => {
 });
 
 const createEvent = asyncHandler(async (req, res) => {
-  const data = await eventService.createEvent(req.body, req.user._id);
+  const data = await eventService.createEvent(req.body, req.user.id);
   return successResponse(res, 201, "Event created", data);
 });
 

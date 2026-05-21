@@ -11,9 +11,9 @@ router.post(
   "/",
   authenticate,
   [
-    body("eventId").isMongoId(),
+    body("eventId").isInt({ min: 1 }),
     body("items").isArray({ min: 1 }),
-    body("items.*.ticketTypeId").isMongoId(),
+    body("items.*.ticketTypeId").isInt({ min: 1 }),
     body("items.*.quantity").isInt({ min: 1 }),
     validateRequest
   ],

@@ -15,7 +15,7 @@ router.post(
   authorize("admin"),
   [
     body("name").notEmpty(),
-    body("cityId").optional().isMongoId(),
+    body("cityId").optional().isInt({ min: 1 }),
     body("address").optional().isString(),
     body("description").optional().isString(),
     body("contactName").optional().isString(),
@@ -32,7 +32,7 @@ router.patch(
   authorize("admin"),
   [
     body("name").optional().isString(),
-    body("cityId").optional().isMongoId(),
+    body("cityId").optional().isInt({ min: 1 }),
     body("address").optional().isString(),
     body("description").optional().isString(),
     body("contactName").optional().isString(),

@@ -5,7 +5,7 @@ import authService from "./auth.service.js";
 const createFirstUser = asyncHandler(async (req, res) => {
   const user = await authService.createFirstUser(req.body);
   return successResponse(res, 201, "First user initialized", {
-    id: user._id,
+    id: user.id,
     name: user.name,
     email: user.email,
     role: user.role
@@ -15,7 +15,7 @@ const createFirstUser = asyncHandler(async (req, res) => {
 const register = asyncHandler(async (req, res) => {
   const user = await authService.register(req.body);
   return successResponse(res, 201, "Register success", {
-    id: user._id,
+    id: user.id,
     name: user.name,
     email: user.email,
     role: user.role

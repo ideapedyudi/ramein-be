@@ -1,12 +1,14 @@
 import crypto from "crypto";
 import request from "supertest";
 import app from "../src/app.js";
-import User from "../src/models/User.js";
-import Category from "../src/models/Category.js";
-import City from "../src/models/City.js";
-import Venue from "../src/models/Venue.js";
-import Event from "../src/models/Event.js";
-import Organizer from "../src/models/Organizer.js";
+import {
+  createUser,
+  createCategory,
+  createCity,
+  createVenue,
+  createOrganizer,
+  getEventTickets
+} from "./helpers/dbSeed.js";
 
 async function login(email, password) {
   const res = await request(app).post("/api/v1/auth/login").send({ email, password });
@@ -20,13 +22,13 @@ function midtransSignature({ order_id, status_code, gross_amount }) {
 
 describe("Transaction API", () => {
   test("create transaction and process paid webhook idempotently", async () => {
-    await User.create({
+    await createUser({
       name: "Buyer",
       email: "buyer@test.com",
       password: "password123",
       role: "user"
     });
-    await User.create({
+    await createUser({
       name: "Admin",
       email: "admin2@test.com",
       password: "password123",
@@ -36,10 +38,10 @@ describe("Transaction API", () => {
     const buyerToken = await login("buyer@test.com", "password123");
     const adminToken = await login("admin2@test.com", "password123");
 
-    const category = await Category.create({ name: "Festival" });
-    const organizer = await Organizer.create({ name: "Promotor Tx" });
-    const city = await City.create({ name: "Yogyakarta" });
-    const venue = await Venue.create({ name: "Field", cityId: city._id, address: "Jl. Malioboro" });
+    const categoryId = await createCategory("Festival");
+    const organizerId = await createOrganizer({ name: "Promotor Tx" });
+    const cityId = await createCity("Yogyakarta");
+    const venueId = await createVenue({ name: "Field", cityId, address: "Jl. Malioboro" });
 
     const now = new Date();
     const saleStartAt = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -53,10 +55,10 @@ describe("Transaction API", () => {
       .send({
         title: "Live Show",
         description: "Live show test",
-        categoryId: category._id.toString(),
-        organizerId: organizer._id.toString(),
-        cityId: city._id.toString(),
-        venueId: venue._id.toString(),
+        categoryId,
+        organizerId,
+        cityId,
+        venueId,
         addressDetail: "Near gate A",
         startDateTime,
         endDateTime,
@@ -77,8 +79,8 @@ describe("Transaction API", () => {
       .set("Authorization", `Bearer ${adminToken}`)
       .send();
 
-    const eventDoc = await Event.findById(eventId);
-    const ticketTypeId = eventDoc.ticketTypes[0]._id.toString();
+    const tickets = await getEventTickets(eventId);
+    const ticketTypeId = tickets[0].id;
 
     const createTxRes = await request(app)
       .post("/api/v1/transactions")
@@ -123,7 +125,7 @@ describe("Transaction API", () => {
     expect(notifRes2.statusCode).toBe(200);
     expect(notifRes2.body.data.duplicated).toBe(true);
 
-    const updatedEvent = await Event.findById(eventId);
-    expect(updatedEvent.ticketTypes[0].sold).toBe(2);
+    const updatedTickets = await getEventTickets(eventId);
+    expect(Number(updatedTickets[0].sold)).toBe(2);
   });
 });

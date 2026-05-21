@@ -1,13 +1,11 @@
-import mongoose from "mongoose";
-import env from "./env.js";
+import { query, closePool } from "../db/mysql.js";
 
 async function connectDatabase() {
-  mongoose.set("strictQuery", true);
-  await mongoose.connect(env.mongodbUri);
+  await query("SELECT 1");
 }
 
 async function disconnectDatabase() {
-  await mongoose.disconnect();
+  await closePool();
 }
 
 export {
