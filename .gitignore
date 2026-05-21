@@ -1,0 +1,65 @@
+# =========================================================================
+# File Konfigurasi .gitignore - Proyek Ramein Backend (Express.js)
+# =========================================================================
+
+# --- Dependensi (Dependency Directories) ---
+# Jangan unggah folder node_modules karena ukurannya sangat besar
+node_modules/
+jspm_packages/
+web_modules/
+
+# --- Log dan Debugging (Logs) ---
+# Abaikan log sistem dan log error dari npm/yarn
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# --- Environment Variables (Kredensial Sensitif) ---
+# Kritis: Jangan pernah commit file .env yang berisi password, API key, atau token rahasia!
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env*.local
+
+# Catatan: File .env.example TETAP harus di-commit sebagai panduan konfigurasi pengembang lain
+
+# --- Hasil Pengujian dan Cakupan Kode (Testing & Coverage) ---
+# Abaikan laporan cakupan pengujian (jest coverage)
+coverage/
+.nyc_output/
+
+# --- Build & Output (jika nantinya ditambahkan compiler/bundler) ---
+# Abaikan folder hasil build produksi jika ada
+dist/
+build/
+out/
+.next/
+.nuxt/
+
+# --- Konfigurasi IDE / Text Editor ---
+# Setiap pengembang memiliki preferensi editor sendiri, abaikan konfigurasi lokal ini
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# --- Sistem Operasi (OS Files) ---
+# Abaikan file sampah dari sistem operasi (macOS/Windows)
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
