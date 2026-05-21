@@ -3,7 +3,9 @@ export default {
     {
       name: "ramein-be",
       cwd: process.cwd(),
-      script: "src/server.js",
+      script: "npm",
+      args: "start",
+      interpreter: "none",
       instances: 1,
       exec_mode: "fork",
       autorestart: true,
