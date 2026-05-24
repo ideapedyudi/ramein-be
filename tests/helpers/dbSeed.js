@@ -11,7 +11,6 @@ async function createUser({ name, email, password = "password123", role = "user"
   );
 
   return {
-    _id: id,
     id,
     name,
     email: email.toLowerCase(),

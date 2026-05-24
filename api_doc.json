@@ -368,7 +368,7 @@
               "script": {
                 "exec": [
                   "const json = pm.response.json();",
-                  "if (json?.data?._id) pm.collectionVariables.set('category_id', json.data._id);"
+                  "if (json?.data?.id) pm.collectionVariables.set('category_id', json.data.id);"
                 ],
                 "type": "text/javascript"
               }
@@ -410,7 +410,7 @@
               "script": {
                 "exec": [
                   "const json = pm.response.json();",
-                  "if (json?.data?._id) pm.collectionVariables.set('city_id', json.data._id);"
+                  "if (json?.data?.id) pm.collectionVariables.set('city_id', json.data.id);"
                 ],
                 "type": "text/javascript"
               }
@@ -452,7 +452,7 @@
               "script": {
                 "exec": [
                   "const json = pm.response.json();",
-                  "if (json?.data?._id) pm.collectionVariables.set('organizer_id', json.data._id);"
+                  "if (json?.data?.id) pm.collectionVariables.set('organizer_id', json.data.id);"
                 ],
                 "type": "text/javascript"
               }
@@ -550,8 +550,8 @@
               "script": {
                 "exec": [
                   "const json = pm.response.json();",
-                  "if (json?.data?._id) pm.collectionVariables.set('event_id', json.data._id);",
-                  "if (json?.data?.ticketTypes?.[0]?._id) pm.collectionVariables.set('ticket_type_id', json.data.ticketTypes[0]._id);"
+                  "if (json?.data?.id) pm.collectionVariables.set('event_id', json.data.id);",
+                  "if (json?.data?.ticketTypes?.[0]?.id) pm.collectionVariables.set('ticket_type_id', json.data.ticketTypes[0].id);"
                 ],
                 "type": "text/javascript"
               }

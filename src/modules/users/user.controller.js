@@ -18,7 +18,6 @@ const updateMe = asyncHandler(async (req, res) => {
   const user = rows[0];
 
   return successResponse(res, 200, "Profile updated", {
-    _id: user.id,
     id: user.id,
     name: user.name,
     email: user.email,
@@ -35,7 +34,6 @@ const listUsers = asyncHandler(async (req, res) => {
     "SELECT id, name, email, phone, role, is_active, created_at, updated_at FROM users ORDER BY created_at DESC"
   );
   const users = rows.map((user) => ({
-    _id: user.id,
     id: user.id,
     name: user.name,
     email: user.email,

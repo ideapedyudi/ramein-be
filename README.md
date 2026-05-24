@@ -9,7 +9,7 @@ Backend aplikasi event/konser dengan:
 - Integrasi Midtrans (Snap + webhook)
 - Unit/integration testing (Jest + Supertest)
 
-Semua ID utama (`_id`/`id`) memakai UUID v4 (contoh: `550e8400-e29b-41d4-a716-446655440000`), bukan auto increment.
+Semua ID utama (`id`) memakai UUID v4 (contoh: `550e8400-e29b-41d4-a716-446655440000`), bukan auto increment.
 
 ## Menjalankan Project
 

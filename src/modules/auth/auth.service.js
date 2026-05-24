@@ -21,7 +21,6 @@ function signRefreshToken(user) {
 
 function mapUser(row) {
   return {
-    _id: row.id,
     id: row.id,
     name: row.name,
     email: row.email,

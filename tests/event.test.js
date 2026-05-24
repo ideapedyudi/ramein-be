@@ -101,12 +101,12 @@ describe("Event API", () => {
 
     const otherToken = await login("other@test.com", "password123");
     const editRes = await request(app)
-      .patch(`/api/v1/events/${eventRes.body.data._id}`)
+      .patch(`/api/v1/events/${eventRes.body.data.id}`)
       .set("Authorization", `Bearer ${otherToken}`)
       .send({ title: "Hijacked title" });
 
     expect(editRes.statusCode).toBe(403);
-    expect(owner._id).not.toBe(otherUser._id);
+    expect(owner.id).not.toBe(otherUser.id);
   });
 
   test("admin can publish event", async () => {
@@ -153,7 +153,7 @@ describe("Event API", () => {
       });
 
     const publishRes = await request(app)
-      .post(`/api/v1/events/${event.body.data._id}/publish`)
+      .post(`/api/v1/events/${event.body.data.id}/publish`)
       .set("Authorization", `Bearer ${adminToken}`)
       .send();
 

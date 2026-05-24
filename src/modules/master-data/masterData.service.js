@@ -16,7 +16,6 @@ function getTable(resource) {
 
 function normalizeMasterRow(resource, row) {
   const base = {
-    _id: row.id,
     id: row.id,
     name: row.name,
     isActive: Boolean(row.is_active),

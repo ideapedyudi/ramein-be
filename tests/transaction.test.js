@@ -70,7 +70,7 @@ describe("Transaction API", () => {
         ]
       });
 
-    const eventId = createEventRes.body.data._id;
+    const eventId = createEventRes.body.data.id;
     await request(app)
       .post(`/api/v1/events/${eventId}/publish`)
       .set("Authorization", `Bearer ${adminToken}`)

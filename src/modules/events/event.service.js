@@ -4,7 +4,6 @@ import { generateId } from "../../utils/id.js";
 
 function normalizeEventRow(row) {
   return {
-    _id: row.id,
     id: row.id,
     title: row.title,
     description: row.description,
@@ -21,17 +20,14 @@ function normalizeEventRow(row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     category: {
-      _id: row.category_id,
       id: row.category_id,
       name: row.category_name
     },
     city: {
-      _id: row.city_id,
       id: row.city_id,
       name: row.city_name
     },
     organizer: {
-      _id: row.organizer_id,
       id: row.organizer_id,
       name: row.organizer_name,
       contactName: row.organizer_contact_name,
@@ -39,7 +35,6 @@ function normalizeEventRow(row) {
       contactPhone: row.organizer_contact_phone
     },
     creator: {
-      _id: row.created_by,
       id: row.created_by,
       name: row.creator_name,
       email: row.creator_email
@@ -49,7 +44,6 @@ function normalizeEventRow(row) {
 
 function normalizeTicketRow(row) {
   return {
-    _id: row.id,
     id: row.id,
     eventId: row.event_id,
     name: row.name,

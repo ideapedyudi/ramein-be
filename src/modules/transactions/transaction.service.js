@@ -10,7 +10,6 @@ function generateOrderId() {
 
 function mapTransactionRow(row) {
   return {
-    _id: row.id,
     id: row.id,
     orderId: row.order_id,
     userId: row.user_id,
@@ -177,7 +176,6 @@ async function getMyTransactions(userId) {
   const txs = rows.map((row) => {
     const tx = mapTransactionRow(row);
     tx.event = {
-      _id: tx.eventId,
       id: tx.eventId,
       title: row.event_title,
       startDateTime: row.event_start_datetime
@@ -221,13 +219,11 @@ async function getAllTransactions(filter = {}) {
   const txs = rows.map((row) => {
     const tx = mapTransactionRow(row);
     tx.user = {
-      _id: tx.userId,
       id: tx.userId,
       name: row.user_name,
       email: row.user_email
     };
     tx.event = {
-      _id: tx.eventId,
       id: tx.eventId,
       title: row.event_title
     };

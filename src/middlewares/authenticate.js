@@ -22,7 +22,6 @@ async function authenticate(req, res, next) {
       return next(new ApiError(401, "Invalid user"));
     }
     req.user = {
-      _id: user.id,
       id: user.id,
       name: user.name,
       email: user.email,
