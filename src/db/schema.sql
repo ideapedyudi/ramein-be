@@ -32,20 +32,6 @@ CREATE TABLE IF NOT EXISTS cities (
   UNIQUE KEY uq_cities_name (name)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS venues (
-  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-  name VARCHAR(120) NOT NULL,
-  city_id BIGINT UNSIGNED NOT NULL,
-  address VARCHAR(255) NOT NULL,
-  is_active TINYINT(1) NOT NULL DEFAULT 1,
-  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  PRIMARY KEY (id),
-  UNIQUE KEY uq_venues_name_city (name, city_id),
-  KEY idx_venues_city_id (city_id),
-  CONSTRAINT fk_venues_city FOREIGN KEY (city_id) REFERENCES cities (id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 CREATE TABLE IF NOT EXISTS organizers (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   name VARCHAR(120) NOT NULL,
@@ -68,7 +54,6 @@ CREATE TABLE IF NOT EXISTS events (
   organizer_id BIGINT UNSIGNED NOT NULL,
   created_by BIGINT UNSIGNED NOT NULL,
   city_id BIGINT UNSIGNED NOT NULL,
-  venue_id BIGINT UNSIGNED NOT NULL,
   address_detail VARCHAR(255) NOT NULL,
   banner_url VARCHAR(500) NULL,
   start_datetime DATETIME NOT NULL,
@@ -83,8 +68,7 @@ CREATE TABLE IF NOT EXISTS events (
   CONSTRAINT fk_events_category FOREIGN KEY (category_id) REFERENCES categories (id),
   CONSTRAINT fk_events_organizer FOREIGN KEY (organizer_id) REFERENCES organizers (id),
   CONSTRAINT fk_events_user FOREIGN KEY (created_by) REFERENCES users (id),
-  CONSTRAINT fk_events_city FOREIGN KEY (city_id) REFERENCES cities (id),
-  CONSTRAINT fk_events_venue FOREIGN KEY (venue_id) REFERENCES venues (id)
+  CONSTRAINT fk_events_city FOREIGN KEY (city_id) REFERENCES cities (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS event_ticket_types (

@@ -5,7 +5,6 @@ import {
   createUser,
   createCategory,
   createCity,
-  createVenue,
   createOrganizer,
   getEventTickets
 } from "./helpers/dbSeed.js";
@@ -41,7 +40,6 @@ describe("Transaction API", () => {
     const categoryId = await createCategory("Festival");
     const organizerId = await createOrganizer({ name: "Promotor Tx" });
     const cityId = await createCity("Yogyakarta");
-    const venueId = await createVenue({ name: "Field", cityId, address: "Jl. Malioboro" });
 
     const now = new Date();
     const saleStartAt = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
@@ -58,7 +56,6 @@ describe("Transaction API", () => {
         categoryId,
         organizerId,
         cityId,
-        venueId,
         addressDetail: "Near gate A",
         startDateTime,
         endDateTime,

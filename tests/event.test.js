@@ -4,7 +4,6 @@ import {
   createUser,
   createCategory,
   createCity,
-  createVenue,
   createOrganizer
 } from "./helpers/dbSeed.js";
 
@@ -25,7 +24,6 @@ describe("Event API", () => {
     const categoryId = await createCategory("Music");
     const organizerId = await createOrganizer({ name: "Promotor A" });
     const cityId = await createCity("Jakarta");
-    const venueId = await createVenue({ name: "Stadium", cityId, address: "Street 1" });
 
     const response = await request(app)
       .post("/api/v1/events")
@@ -36,7 +34,6 @@ describe("Event API", () => {
         categoryId,
         organizerId,
         cityId,
-        venueId,
         addressDetail: "Main road",
         startDateTime: "2030-01-10T19:00:00.000Z",
         endDateTime: "2030-01-10T22:00:00.000Z",
@@ -72,7 +69,6 @@ describe("Event API", () => {
     const categoryId = await createCategory("Seminar");
     const organizerId = await createOrganizer({ name: "Promotor B" });
     const cityId = await createCity("Bandung");
-    const venueId = await createVenue({ name: "Hall", cityId, address: "Street 2" });
 
     const createRes = await request(app).post("/api/v1/auth/login").send({
       email: "owner2@test.com",
@@ -89,7 +85,6 @@ describe("Event API", () => {
         categoryId,
         organizerId,
         cityId,
-        venueId,
         addressDetail: "Street event",
         startDateTime: "2030-03-10T19:00:00.000Z",
         endDateTime: "2030-03-10T22:00:00.000Z",
@@ -133,7 +128,6 @@ describe("Event API", () => {
     const categoryId = await createCategory("Sport");
     const organizerId = await createOrganizer({ name: "Promotor C" });
     const cityId = await createCity("Surabaya");
-    const venueId = await createVenue({ name: "Arena", cityId, address: "Street 3" });
 
     const event = await request(app)
       .post("/api/v1/events")
@@ -144,7 +138,6 @@ describe("Event API", () => {
         categoryId,
         organizerId,
         cityId,
-        venueId,
         addressDetail: "Arena address",
         startDateTime: "2030-04-10T19:00:00.000Z",
         endDateTime: "2030-04-10T22:00:00.000Z",

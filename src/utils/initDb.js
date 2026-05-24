@@ -29,6 +29,44 @@ async function run() {
     await query(statement);
   }
 
+  const venueColumn = await query(
+    `SELECT 1
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'events' AND COLUMN_NAME = 'venue_id'
+     LIMIT 1`,
+    [env.mysqlDatabase]
+  );
+
+  if (venueColumn.length > 0) {
+    const constraints = await query(
+      `SELECT CONSTRAINT_NAME AS constraintName
+       FROM information_schema.KEY_COLUMN_USAGE
+       WHERE TABLE_SCHEMA = ?
+         AND TABLE_NAME = 'events'
+         AND COLUMN_NAME = 'venue_id'
+         AND REFERENCED_TABLE_NAME IS NOT NULL`,
+      [env.mysqlDatabase]
+    );
+
+    for (const constraint of constraints) {
+      await query(`ALTER TABLE events DROP FOREIGN KEY \`${constraint.constraintName}\``);
+    }
+
+    await query("ALTER TABLE events DROP COLUMN venue_id");
+  }
+
+  const venuesTable = await query(
+    `SELECT 1
+     FROM information_schema.TABLES
+     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'venues'
+     LIMIT 1`,
+    [env.mysqlDatabase]
+  );
+
+  if (venuesTable.length > 0) {
+    await query("DROP TABLE venues");
+  }
+
   await closePool();
   // eslint-disable-next-line no-console
   console.log("Database initialized successfully");

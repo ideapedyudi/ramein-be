@@ -11,7 +11,6 @@ function normalizeEventRow(row) {
     organizerId: row.organizer_id,
     createdBy: row.created_by,
     cityId: row.city_id,
-    venueId: row.venue_id,
     addressDetail: row.address_detail,
     bannerUrl: row.banner_url,
     startDateTime: row.start_datetime,
@@ -29,11 +28,6 @@ function normalizeEventRow(row) {
       _id: row.city_id,
       id: row.city_id,
       name: row.city_name
-    },
-    venue: {
-      _id: row.venue_id,
-      id: row.venue_id,
-      name: row.venue_name
     },
     organizer: {
       _id: row.organizer_id,
@@ -125,7 +119,6 @@ async function listEvents(queryParams) {
       e.*,
       c.name AS category_name,
       ci.name AS city_name,
-      v.name AS venue_name,
       o.name AS organizer_name,
       o.contact_name AS organizer_contact_name,
       o.contact_email AS organizer_contact_email,
@@ -135,7 +128,6 @@ async function listEvents(queryParams) {
     FROM events e
     JOIN categories c ON c.id = e.category_id
     JOIN cities ci ON ci.id = e.city_id
-    JOIN venues v ON v.id = e.venue_id
     JOIN organizers o ON o.id = e.organizer_id
     JOIN users u ON u.id = e.created_by
     ${where}
@@ -153,7 +145,6 @@ async function getEventById(id) {
       e.*,
       c.name AS category_name,
       ci.name AS city_name,
-      v.name AS venue_name,
       o.name AS organizer_name,
       o.contact_name AS organizer_contact_name,
       o.contact_email AS organizer_contact_email,
@@ -163,7 +154,6 @@ async function getEventById(id) {
     FROM events e
     JOIN categories c ON c.id = e.category_id
     JOIN cities ci ON ci.id = e.city_id
-    JOIN venues v ON v.id = e.venue_id
     JOIN organizers o ON o.id = e.organizer_id
     JOIN users u ON u.id = e.created_by
     WHERE e.id = ?
@@ -196,14 +186,13 @@ async function createEvent(payload, userId) {
         organizer_id,
         created_by,
         city_id,
-        venue_id,
         address_detail,
         banner_url,
         start_datetime,
         end_datetime,
         status,
         is_published
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
       [
         payload.title,
         payload.description,
@@ -211,7 +200,6 @@ async function createEvent(payload, userId) {
         Number(payload.organizerId),
         Number(userId),
         Number(payload.cityId),
-        Number(payload.venueId),
         payload.addressDetail,
         payload.bannerUrl || null,
         payload.startDateTime,
@@ -261,7 +249,6 @@ function buildEventUpdate(payload, user) {
     categoryId: "category_id",
     organizerId: "organizer_id",
     cityId: "city_id",
-    venueId: "venue_id",
     addressDetail: "address_detail",
     bannerUrl: "banner_url",
     startDateTime: "start_datetime",
@@ -273,7 +260,7 @@ function buildEventUpdate(payload, user) {
   for (const [key, column] of Object.entries(map)) {
     if (payload[key] !== undefined) {
       fields.push(`${column} = ?`);
-      if (["categoryId", "organizerId", "cityId", "venueId"].includes(key)) {
+      if (["categoryId", "organizerId", "cityId"].includes(key)) {
         values.push(Number(payload[key]));
       } else if (key === "isPublished") {
         values.push(payload[key] ? 1 : 0);

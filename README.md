@@ -50,7 +50,7 @@ npm test
 
 - Auth: `/auth/register`, `/auth/login`, `/auth/refresh-token`, `/auth/logout`
 - User: `/users/me`, `/users/admin/list`
-- Master data: `/master/categories`, `/master/cities`, `/master/venues`, `/master/organizers`
+- Master data: `/master/categories`, `/master/cities`, `/master/organizers`
 - Event: `/events`, `/events/:id`, `/events/:id/publish`
 - Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`
 - Payment webhook: `/payments/midtrans/notification`

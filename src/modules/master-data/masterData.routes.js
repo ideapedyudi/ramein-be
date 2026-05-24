@@ -7,16 +7,14 @@ import controller from "./masterData.controller.js";
 
 const router = express.Router();
 
-router.get("/:resource(categories|cities|venues|organizers)", controller.list);
+router.get("/:resource(categories|cities|organizers)", controller.list);
 
 router.post(
-  "/:resource(categories|cities|venues|organizers)",
+  "/:resource(categories|cities|organizers)",
   authenticate,
   authorize("admin"),
   [
     body("name").notEmpty(),
-    body("cityId").optional().isInt({ min: 1 }),
-    body("address").optional().isString(),
     body("description").optional().isString(),
     body("contactName").optional().isString(),
     body("contactEmail").optional().isEmail(),
@@ -27,13 +25,11 @@ router.post(
 );
 
 router.patch(
-  "/:resource(categories|cities|venues|organizers)/:id",
+  "/:resource(categories|cities|organizers)/:id",
   authenticate,
   authorize("admin"),
   [
     body("name").optional().isString(),
-    body("cityId").optional().isInt({ min: 1 }),
-    body("address").optional().isString(),
     body("description").optional().isString(),
     body("contactName").optional().isString(),
     body("contactEmail").optional().isEmail(),
@@ -45,7 +41,7 @@ router.patch(
 );
 
 router.delete(
-  "/:resource(categories|cities|venues|organizers)/:id",
+  "/:resource(categories|cities|organizers)/:id",
   authenticate,
   authorize("admin"),
   controller.remove

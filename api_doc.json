@@ -27,10 +27,6 @@
       "value": ""
     },
     {
-      "key": "venue_id",
-      "value": ""
-    },
-    {
       "key": "event_id",
       "value": ""
     },
@@ -449,48 +445,6 @@
           }
         },
         {
-          "name": "POST Venue (Admin)",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "const json = pm.response.json();",
-                  "if (json?.data?._id) pm.collectionVariables.set('venue_id', json.data._id);"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              },
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"name\": \"GBK Stadium\",\n  \"cityId\": \"{{city_id}}\",\n  \"address\": \"Senayan, Jakarta\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/master/venues",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "master",
-                "venues"
-              ]
-            }
-          }
-        },
-        {
           "name": "POST Organizer (Admin)",
           "event": [
             {
@@ -567,23 +521,6 @@
           }
         },
         {
-          "name": "GET Venues",
-          "request": {
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/master/venues",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "master",
-                "venues"
-              ]
-            }
-          }
-        },
-        {
           "name": "GET Organizers",
           "request": {
             "method": "GET",
@@ -634,7 +571,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Konser Akhir Tahun\",\n  \"description\": \"Konser musik dengan banyak artis.\",\n  \"categoryId\": \"{{category_id}}\",\n  \"organizerId\": \"{{organizer_id}}\",\n  \"cityId\": \"{{city_id}}\",\n  \"venueId\": \"{{venue_id}}\",\n  \"addressDetail\": \"Gate A, lantai 1\",\n  \"startDateTime\": \"2030-12-20T19:00:00.000Z\",\n  \"endDateTime\": \"2030-12-20T22:00:00.000Z\",\n  \"ticketTypes\": [\n    {\n      \"name\": \"Regular\",\n      \"price\": 150000,\n      \"quota\": 100,\n      \"saleStartAt\": \"2030-11-01T00:00:00.000Z\",\n      \"saleEndAt\": \"2030-12-20T18:00:00.000Z\"\n    }\n  ]\n}"
+              "raw": "{\n  \"title\": \"Konser Akhir Tahun\",\n  \"description\": \"Konser musik dengan banyak artis.\",\n  \"categoryId\": \"{{category_id}}\",\n  \"organizerId\": \"{{organizer_id}}\",\n  \"cityId\": \"{{city_id}}\",\n  \"addressDetail\": \"Gate A, lantai 1\",\n  \"startDateTime\": \"2030-12-20T19:00:00.000Z\",\n  \"endDateTime\": \"2030-12-20T22:00:00.000Z\",\n  \"ticketTypes\": [\n    {\n      \"name\": \"Regular\",\n      \"price\": 150000,\n      \"quota\": 100,\n      \"saleStartAt\": \"2030-11-01T00:00:00.000Z\",\n      \"saleEndAt\": \"2030-12-20T18:00:00.000Z\"\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/events",

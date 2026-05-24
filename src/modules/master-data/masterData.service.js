@@ -4,7 +4,6 @@ import ApiError from "../../utils/apiError.js";
 const tableMap = {
   categories: "categories",
   cities: "cities",
-  venues: "venues",
   organizers: "organizers"
 };
 
@@ -23,14 +22,6 @@ function normalizeMasterRow(resource, row) {
     createdAt: row.created_at,
     updatedAt: row.updated_at
   };
-
-  if (resource === "venues") {
-    return {
-      ...base,
-      cityId: row.city_id,
-      address: row.address
-    };
-  }
 
   if (resource === "organizers") {
     return {
@@ -60,15 +51,6 @@ async function create(resource, payload) {
     return normalizeMasterRow(resource, rows[0]);
   }
 
-  if (resource === "venues") {
-    const result = await query(
-      "INSERT INTO venues (name, city_id, address, is_active) VALUES (?, ?, ?, 1)",
-      [payload.name, Number(payload.cityId), payload.address]
-    );
-    const rows = await query("SELECT * FROM venues WHERE id = ? LIMIT 1", [result.insertId]);
-    return normalizeMasterRow(resource, rows[0]);
-  }
-
   const result = await query(
     "INSERT INTO organizers (name, description, contact_name, contact_email, contact_phone, is_active) VALUES (?, ?, ?, ?, ?, 1)",
     [
@@ -95,17 +77,6 @@ function buildUpdate(resource, payload) {
   if (payload.isActive !== undefined) {
     fields.push("is_active = ?");
     values.push(payload.isActive ? 1 : 0);
-  }
-
-  if (resource === "venues") {
-    if (payload.cityId !== undefined) {
-      fields.push("city_id = ?");
-      values.push(Number(payload.cityId));
-    }
-    if (payload.address !== undefined) {
-      fields.push("address = ?");
-      values.push(payload.address);
-    }
   }
 
   if (resource === "organizers") {

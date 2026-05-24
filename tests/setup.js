@@ -12,12 +12,13 @@ const tables = [
   "transactions",
   "event_ticket_types",
   "events",
-  "venues",
   "organizers",
   "cities",
   "categories",
   "users"
 ];
+
+const resetTables = [...tables, "venues"];
 
 async function ensureDatabase() {
   const connection = await mysql.createConnection({
@@ -32,6 +33,12 @@ async function ensureDatabase() {
 }
 
 async function runSchema() {
+  await query("SET FOREIGN_KEY_CHECKS = 0");
+  for (const table of resetTables) {
+    await query(`DROP TABLE IF EXISTS ${table}`);
+  }
+  await query("SET FOREIGN_KEY_CHECKS = 1");
+
   const schemaPath = new URL("../src/db/schema.sql", import.meta.url);
   const schemaSql = await fs.readFile(schemaPath, "utf8");
   const statements = schemaSql

@@ -27,14 +27,6 @@ async function createCity(name) {
   return result.insertId;
 }
 
-async function createVenue({ name, cityId, address }) {
-  const result = await query(
-    "INSERT INTO venues (name, city_id, address, is_active) VALUES (?, ?, ?, 1)",
-    [name, Number(cityId), address]
-  );
-  return result.insertId;
-}
-
 async function createOrganizer({ name, description = null, contactName = null, contactEmail = null, contactPhone = null }) {
   const result = await query(
     "INSERT INTO organizers (name, description, contact_name, contact_email, contact_phone, is_active) VALUES (?, ?, ?, ?, ?, 1)",
@@ -56,7 +48,6 @@ export {
   createUser,
   createCategory,
   createCity,
-  createVenue,
   createOrganizer,
   getEventTickets,
   getEventById

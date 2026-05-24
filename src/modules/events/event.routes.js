@@ -19,7 +19,6 @@ router.post(
     body("categoryId").isInt({ min: 1 }),
     body("organizerId").isInt({ min: 1 }),
     body("cityId").isInt({ min: 1 }),
-    body("venueId").isInt({ min: 1 }),
     body("addressDetail").notEmpty(),
     body("startDateTime").isISO8601(),
     body("endDateTime").isISO8601(),
