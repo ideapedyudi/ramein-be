@@ -1,5 +1,6 @@
 import { query } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
+import { generateId } from "../../utils/id.js";
 
 const tableMap = {
   categories: "categories",
@@ -46,14 +47,17 @@ async function create(resource, payload) {
   const table = getTable(resource);
 
   if (resource === "categories" || resource === "cities") {
-    const result = await query(`INSERT INTO ${table} (name, is_active) VALUES (?, 1)`, [payload.name]);
-    const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [result.insertId]);
+    const id = generateId();
+    await query(`INSERT INTO ${table} (id, name, is_active) VALUES (?, ?, 1)`, [id, payload.name]);
+    const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
     return normalizeMasterRow(resource, rows[0]);
   }
 
-  const result = await query(
-    "INSERT INTO organizers (name, description, contact_name, contact_email, contact_phone, is_active) VALUES (?, ?, ?, ?, ?, 1)",
+  const id = generateId();
+  await query(
+    "INSERT INTO organizers (id, name, description, contact_name, contact_email, contact_phone, is_active) VALUES (?, ?, ?, ?, ?, ?, 1)",
     [
+      id,
       payload.name,
       payload.description || null,
       payload.contactName || null,
@@ -61,7 +65,7 @@ async function create(resource, payload) {
       payload.contactPhone || null
     ]
   );
-  const rows = await query("SELECT * FROM organizers WHERE id = ? LIMIT 1", [result.insertId]);
+  const rows = await query("SELECT * FROM organizers WHERE id = ? LIMIT 1", [id]);
   return normalizeMasterRow(resource, rows[0]);
 }
 
@@ -106,10 +110,10 @@ async function update(resource, id, payload) {
   const { fields, values } = buildUpdate(resource, payload);
 
   if (fields.length > 0) {
-    await query(`UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`, [...values, Number(id)]);
+    await query(`UPDATE ${table} SET ${fields.join(", ")} WHERE id = ?`, [...values, id]);
   }
 
-  const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [Number(id)]);
+  const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
   if (rows.length === 0) throw new ApiError(404, "Data not found");
 
   return normalizeMasterRow(resource, rows[0]);
@@ -117,9 +121,9 @@ async function update(resource, id, payload) {
 
 async function remove(resource, id) {
   const table = getTable(resource);
-  await query(`UPDATE ${table} SET is_active = 0 WHERE id = ?`, [Number(id)]);
+  await query(`UPDATE ${table} SET is_active = 0 WHERE id = ?`, [id]);
 
-  const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [Number(id)]);
+  const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
   if (rows.length === 0) throw new ApiError(404, "Data not found");
 
   return normalizeMasterRow(resource, rows[0]);

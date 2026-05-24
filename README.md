@@ -9,6 +9,8 @@ Backend aplikasi event/konser dengan:
 - Integrasi Midtrans (Snap + webhook)
 - Unit/integration testing (Jest + Supertest)
 
+Semua ID utama (`_id`/`id`) memakai UUID v4 (contoh: `550e8400-e29b-41d4-a716-446655440000`), bukan auto increment.
+
 ## Menjalankan Project
 
 1. Install dependency
@@ -25,6 +27,7 @@ cp .env.example .env
 ```bash
 npm run db:init
 ```
+Perintah ini akan me-reset tabel aplikasi lalu membuat ulang schema terbaru.
 
 4. Jalankan server
 ```bash

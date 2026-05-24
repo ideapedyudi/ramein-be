@@ -11,9 +11,9 @@ router.post(
   "/",
   authenticate,
   [
-    body("eventId").isInt({ min: 1 }),
+    body("eventId").isUUID(),
     body("items").isArray({ min: 1 }),
-    body("items.*.ticketTypeId").isInt({ min: 1 }),
+    body("items.*.ticketTypeId").isUUID(),
     body("items.*.quantity").isInt({ min: 1 }),
     validateRequest
   ],

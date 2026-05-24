@@ -1,6 +1,7 @@
 import { query, transaction } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
 import paymentService from "../payments/payment.service.js";
+import { generateId } from "../../utils/id.js";
 
 function generateOrderId() {
   const random = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -37,17 +38,17 @@ function mapTransactionItemRow(row) {
 }
 
 async function getTicketsByEventId(eventId) {
-  return query("SELECT * FROM event_ticket_types WHERE event_id = ? ORDER BY id ASC", [Number(eventId)]);
+  return query("SELECT * FROM event_ticket_types WHERE event_id = ? ORDER BY created_at ASC, id ASC", [eventId]);
 }
 
 function findTicketById(tickets, ticketTypeId) {
-  return tickets.find((ticket) => Number(ticket.id) === Number(ticketTypeId));
+  return tickets.find((ticket) => ticket.id === ticketTypeId);
 }
 
 async function createTransaction(payload, user) {
   const eventRows = await query(
     "SELECT id, title, is_published, status FROM events WHERE id = ? LIMIT 1",
-    [Number(payload.eventId)]
+    [payload.eventId]
   );
   const event = eventRows[0];
 
@@ -80,7 +81,7 @@ async function createTransaction(payload, user) {
     const subtotal = Number(ticket.price) * Number(selectedItem.quantity);
     grossAmount += subtotal;
     items.push({
-      ticketTypeId: Number(ticket.id),
+      ticketTypeId: ticket.id,
       ticketName: ticket.name,
       unitPrice: Number(ticket.price),
       quantity: Number(selectedItem.quantity),
@@ -95,9 +96,11 @@ async function createTransaction(payload, user) {
     customer: user
   });
 
-  const transactionId = await transaction(async (connection) => {
-    const [txResult] = await connection.execute(
+  const transactionId = generateId();
+  await transaction(async (connection) => {
+    await connection.execute(
       `INSERT INTO transactions (
+        id,
         order_id,
         user_id,
         event_id,
@@ -105,11 +108,12 @@ async function createTransaction(payload, user) {
         status,
         snap_token,
         redirect_url
-      ) VALUES (?, ?, ?, ?, 'pending', ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
       [
+        transactionId,
         orderId,
-        Number(user.id),
-        Number(payload.eventId),
+        user.id,
+        payload.eventId,
         grossAmount,
         payment.token || null,
         payment.redirect_url || null
@@ -117,20 +121,20 @@ async function createTransaction(payload, user) {
     );
 
     for (const item of items) {
+      const itemId = generateId();
       await connection.execute(
         `INSERT INTO transaction_items (
+          id,
           transaction_id,
           ticket_type_id,
           ticket_name,
           unit_price,
           quantity,
           subtotal
-        ) VALUES (?, ?, ?, ?, ?, ?)`,
-        [txResult.insertId, item.ticketTypeId, item.ticketName, item.unitPrice, item.quantity, item.subtotal]
+        ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [itemId, transactionId, item.ticketTypeId, item.ticketName, item.unitPrice, item.quantity, item.subtotal]
       );
     }
-
-    return txResult.insertId;
   });
 
   const createdRows = await query("SELECT * FROM transactions WHERE id = ? LIMIT 1", [transactionId]);
@@ -167,7 +171,7 @@ async function getMyTransactions(userId) {
     JOIN events e ON e.id = t.event_id
     WHERE t.user_id = ?
     ORDER BY t.created_at DESC`,
-    [Number(userId)]
+    [userId]
   );
 
   const txs = rows.map((row) => {
@@ -195,7 +199,7 @@ async function getAllTransactions(filter = {}) {
 
   if (filter.eventId) {
     clauses.push("t.event_id = ?");
-    values.push(Number(filter.eventId));
+    values.push(filter.eventId);
   }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
@@ -249,9 +253,10 @@ async function handleMidtransNotification(payload) {
   }
 
   return transaction(async (connection) => {
+    const paymentLogId = generateId();
     await connection.execute(
-      "INSERT INTO payment_logs (order_id, notification_key, payload) VALUES (?, ?, ?)",
-      [payload.order_id, notificationKey, JSON.stringify(payload)]
+      "INSERT INTO payment_logs (id, order_id, notification_key, payload) VALUES (?, ?, ?, ?)",
+      [paymentLogId, payload.order_id, notificationKey, JSON.stringify(payload)]
     );
 
     const [txRows] = await connection.execute(
@@ -279,7 +284,7 @@ async function handleMidtransNotification(payload) {
       for (const item of itemRows) {
         await connection.execute(
           "UPDATE event_ticket_types SET sold = sold + ? WHERE id = ?",
-          [Number(item.quantity), Number(item.ticket_type_id)]
+          [Number(item.quantity), item.ticket_type_id]
         );
       }
     }

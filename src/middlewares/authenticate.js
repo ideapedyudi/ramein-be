@@ -15,7 +15,7 @@ async function authenticate(req, res, next) {
     const payload = jwt.verify(token, env.jwtAccessSecret);
     const rows = await query(
       "SELECT id, name, email, phone, role, is_active, created_at, updated_at FROM users WHERE id = ? LIMIT 1",
-      [Number(payload.sub)]
+      [payload.sub]
     );
     const user = rows[0];
     if (!user || !user.is_active) {

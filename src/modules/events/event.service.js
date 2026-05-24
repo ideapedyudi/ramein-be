@@ -1,5 +1,6 @@
 import { query, transaction } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
+import { generateId } from "../../utils/id.js";
 
 function normalizeEventRow(row) {
   return {
@@ -68,7 +69,7 @@ async function attachTicketTypes(events) {
   const eventIds = events.map((event) => event.id);
   const placeholders = eventIds.map(() => "?").join(", ");
   const ticketRows = await query(
-    `SELECT * FROM event_ticket_types WHERE event_id IN (${placeholders}) ORDER BY id ASC`,
+    `SELECT * FROM event_ticket_types WHERE event_id IN (${placeholders}) ORDER BY created_at ASC, id ASC`,
     eventIds
   );
 
@@ -97,7 +98,7 @@ function buildEventWhere(queryParams) {
 
   if (queryParams.organizerId) {
     clauses.push("e.organizer_id = ?");
-    values.push(Number(queryParams.organizerId));
+    values.push(queryParams.organizerId);
   }
 
   if (queryParams.search) {
@@ -158,7 +159,7 @@ async function getEventById(id) {
     JOIN users u ON u.id = e.created_by
     WHERE e.id = ?
     LIMIT 1`,
-    [Number(id)]
+    [id]
   );
 
   if (rows.length === 0) throw new ApiError(404, "Event not found");
@@ -170,16 +171,18 @@ async function getEventById(id) {
 async function createEvent(payload, userId) {
   const organizerRows = await query(
     "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
-    [Number(payload.organizerId)]
+    [payload.organizerId]
   );
   const organizer = organizerRows[0];
   if (!organizer || !organizer.is_active) {
     throw new ApiError(400, "Invalid organizer");
   }
 
-  const eventId = await transaction(async (connection) => {
-    const [eventResult] = await connection.execute(
+  const eventId = generateId();
+  await transaction(async (connection) => {
+    await connection.execute(
       `INSERT INTO events (
+        id,
         title,
         description,
         category_id,
@@ -192,14 +195,15 @@ async function createEvent(payload, userId) {
         end_datetime,
         status,
         is_published
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
       [
+        eventId,
         payload.title,
         payload.description,
-        Number(payload.categoryId),
-        Number(payload.organizerId),
-        Number(userId),
-        Number(payload.cityId),
+        payload.categoryId,
+        payload.organizerId,
+        userId,
+        payload.cityId,
         payload.addressDetail,
         payload.bannerUrl || null,
         payload.startDateTime,
@@ -208,8 +212,10 @@ async function createEvent(payload, userId) {
     );
 
     for (const ticket of payload.ticketTypes || []) {
+      const ticketTypeId = generateId();
       await connection.execute(
         `INSERT INTO event_ticket_types (
+          id,
           event_id,
           name,
           price,
@@ -217,9 +223,10 @@ async function createEvent(payload, userId) {
           sold,
           sale_start_at,
           sale_end_at
-        ) VALUES (?, ?, ?, ?, 0, ?, ?)`,
+        ) VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
         [
-          eventResult.insertId,
+          ticketTypeId,
+          eventId,
           ticket.name,
           ticket.price,
           ticket.quota,
@@ -228,15 +235,13 @@ async function createEvent(payload, userId) {
         ]
       );
     }
-
-    return eventResult.insertId;
   });
 
   return getEventById(eventId);
 }
 
 function canManageEvent(event, user) {
-  return user.role === "admin" || Number(event.createdBy) === Number(user.id);
+  return user.role === "admin" || event.createdBy === user.id;
 }
 
 function buildEventUpdate(payload, user) {
@@ -260,9 +265,7 @@ function buildEventUpdate(payload, user) {
   for (const [key, column] of Object.entries(map)) {
     if (payload[key] !== undefined) {
       fields.push(`${column} = ?`);
-      if (["categoryId", "organizerId", "cityId"].includes(key)) {
-        values.push(Number(payload[key]));
-      } else if (key === "isPublished") {
+      if (key === "isPublished") {
         values.push(payload[key] ? 1 : 0);
       } else {
         values.push(payload[key]);
@@ -285,7 +288,7 @@ async function updateEvent(id, payload, user) {
   if (payload.organizerId !== undefined) {
     const organizerRows = await query(
       "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
-      [Number(payload.organizerId)]
+      [payload.organizerId]
     );
     const organizer = organizerRows[0];
     if (!organizer || !organizer.is_active) {
@@ -297,14 +300,16 @@ async function updateEvent(id, payload, user) {
 
   await transaction(async (connection) => {
     if (fields.length > 0) {
-      await connection.execute(`UPDATE events SET ${fields.join(", ")} WHERE id = ?`, [...values, Number(id)]);
+      await connection.execute(`UPDATE events SET ${fields.join(", ")} WHERE id = ?`, [...values, id]);
     }
 
     if (payload.ticketTypes !== undefined) {
-      await connection.execute("DELETE FROM event_ticket_types WHERE event_id = ?", [Number(id)]);
+      await connection.execute("DELETE FROM event_ticket_types WHERE event_id = ?", [id]);
       for (const ticket of payload.ticketTypes) {
+        const ticketTypeId = generateId();
         await connection.execute(
           `INSERT INTO event_ticket_types (
+            id,
             event_id,
             name,
             price,
@@ -312,9 +317,10 @@ async function updateEvent(id, payload, user) {
             sold,
             sale_start_at,
             sale_end_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
           [
-            Number(id),
+            ticketTypeId,
+            id,
             ticket.name,
             ticket.price,
             ticket.quota,
@@ -333,7 +339,7 @@ async function updateEvent(id, payload, user) {
 async function deleteEvent(id, user) {
   const event = await getEventById(id);
   if (!canManageEvent(event, user)) throw new ApiError(403, "Forbidden");
-  await query("DELETE FROM events WHERE id = ?", [Number(id)]);
+  await query("DELETE FROM events WHERE id = ?", [id]);
 }
 
 async function publishEvent(id, adminUser) {
@@ -341,7 +347,7 @@ async function publishEvent(id, adminUser) {
 
   const result = await query(
     "UPDATE events SET status = 'published', is_published = 1 WHERE id = ?",
-    [Number(id)]
+    [id]
   );
   if (result.affectedRows === 0) throw new ApiError(404, "Event not found");
 

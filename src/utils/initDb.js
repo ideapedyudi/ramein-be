@@ -3,6 +3,18 @@ import mysql from "mysql2/promise";
 import env from "../config/env.js";
 import { query, closePool } from "../db/mysql.js";
 
+const tables = [
+  "transaction_items",
+  "payment_logs",
+  "transactions",
+  "event_ticket_types",
+  "events",
+  "organizers",
+  "cities",
+  "categories",
+  "users"
+];
+
 async function ensureDatabase() {
   const connection = await mysql.createConnection({
     host: env.mysqlHost,
@@ -18,6 +30,12 @@ async function ensureDatabase() {
 async function run() {
   await ensureDatabase();
 
+  await query("SET FOREIGN_KEY_CHECKS = 0");
+  for (const table of [...tables, "venues"]) {
+    await query(`DROP TABLE IF EXISTS ${table}`);
+  }
+  await query("SET FOREIGN_KEY_CHECKS = 1");
+
   const schemaPath = new URL("../db/schema.sql", import.meta.url);
   const schemaSql = await fs.readFile(schemaPath, "utf8");
   const statements = schemaSql
@@ -27,44 +45,6 @@ async function run() {
 
   for (const statement of statements) {
     await query(statement);
-  }
-
-  const venueColumn = await query(
-    `SELECT 1
-     FROM information_schema.COLUMNS
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'events' AND COLUMN_NAME = 'venue_id'
-     LIMIT 1`,
-    [env.mysqlDatabase]
-  );
-
-  if (venueColumn.length > 0) {
-    const constraints = await query(
-      `SELECT CONSTRAINT_NAME AS constraintName
-       FROM information_schema.KEY_COLUMN_USAGE
-       WHERE TABLE_SCHEMA = ?
-         AND TABLE_NAME = 'events'
-         AND COLUMN_NAME = 'venue_id'
-         AND REFERENCED_TABLE_NAME IS NOT NULL`,
-      [env.mysqlDatabase]
-    );
-
-    for (const constraint of constraints) {
-      await query(`ALTER TABLE events DROP FOREIGN KEY \`${constraint.constraintName}\``);
-    }
-
-    await query("ALTER TABLE events DROP COLUMN venue_id");
-  }
-
-  const venuesTable = await query(
-    `SELECT 1
-     FROM information_schema.TABLES
-     WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'venues'
-     LIMIT 1`,
-    [env.mysqlDatabase]
-  );
-
-  if (venuesTable.length > 0) {
-    await query("DROP TABLE venues");
   }
 
   await closePool();

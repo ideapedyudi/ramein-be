@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { query } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
 import env from "../../config/env.js";
+import { generateId } from "../../utils/id.js";
 
 function signAccessToken(user) {
   return jwt.sign(
@@ -40,11 +41,12 @@ async function register(payload) {
   }
 
   const hashedPassword = await bcrypt.hash(payload.password, 10);
-  const result = await query(
-    "INSERT INTO users (name, email, password, phone, role, is_active) VALUES (?, ?, ?, ?, 'user', 1)",
-    [payload.name, email, hashedPassword, payload.phone || null]
+  const userId = generateId();
+  await query(
+    "INSERT INTO users (id, name, email, password, phone, role, is_active) VALUES (?, ?, ?, ?, ?, 'user', 1)",
+    [userId, payload.name, email, hashedPassword, payload.phone || null]
   );
-  const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [result.insertId]);
+  const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [userId]);
 
   return mapUser(rows[0]);
 }
@@ -57,11 +59,12 @@ async function createFirstUser(payload) {
 
   const hashedPassword = await bcrypt.hash(payload.password, 10);
   const email = payload.email.toLowerCase();
-  const result = await query(
-    "INSERT INTO users (name, email, password, phone, role, is_active) VALUES (?, ?, ?, ?, 'admin', 1)",
-    [payload.name, email, hashedPassword, payload.phone || null]
+  const userId = generateId();
+  await query(
+    "INSERT INTO users (id, name, email, password, phone, role, is_active) VALUES (?, ?, ?, ?, ?, 'admin', 1)",
+    [userId, payload.name, email, hashedPassword, payload.phone || null]
   );
-  const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [result.insertId]);
+  const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [userId]);
 
   return mapUser(rows[0]);
 }
@@ -97,7 +100,7 @@ async function login(email, password) {
 async function refreshToken(token) {
   try {
     const payload = jwt.verify(token, env.jwtRefreshSecret);
-    const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [Number(payload.sub)]);
+    const rows = await query("SELECT * FROM users WHERE id = ? LIMIT 1", [payload.sub]);
     const user = rows[0];
     if (!user || !user.is_active) {
       throw new ApiError(401, "Invalid refresh token");
