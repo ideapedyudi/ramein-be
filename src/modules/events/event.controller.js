@@ -3,7 +3,7 @@ import { successResponse  } from "../../utils/response.js";
 import eventService from "./event.service.js";
 
 const listEvents = asyncHandler(async (req, res) => {
-  const data = await eventService.listEvents(req.query);
+  const data = await eventService.listEvents(req.query, req.user);
   return successResponse(res, 200, "Event list", data);
 });
 

@@ -296,6 +296,15 @@ describe("Event API", () => {
     expect(response.body.data).toHaveLength(1);
     expect(response.body.data[0].title).toBe("Owner A Event");
     expect(response.body.data[0].createdBy).toBeDefined();
+
+    const filteredResponse = await request(app)
+      .get("/api/v1/events?createdBy=me")
+      .set("Authorization", `Bearer ${ownerAToken}`);
+
+    expect(filteredResponse.statusCode).toBe(200);
+    expect(filteredResponse.body.data).toHaveLength(1);
+    expect(filteredResponse.body.data[0].title).toBe("Owner A Event");
+    expect(filteredResponse.body.data[0].createdBy).toBe(response.body.data[0].createdBy);
   });
 
   test("public get events does not require login", async () => {
@@ -338,6 +347,13 @@ describe("Event API", () => {
 
     expect(response.statusCode).toBe(200);
     expect(Array.isArray(response.body.data)).toBe(true);
+  });
+
+  test("createdBy me filter requires login", async () => {
+    const response = await request(app).get("/api/v1/events?createdBy=me");
+
+    expect(response.statusCode).toBe(401);
+    expect(response.body.message).toBe("Unauthorized");
   });
 
   test("can get trending and recommended event lists", async () => {

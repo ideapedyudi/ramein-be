@@ -11,12 +11,7 @@ function getBearerToken(req) {
   return match?.[1]?.trim() || null;
 }
 
-async function authenticate(req, res, next) {
-  const token = getBearerToken(req);
-  if (!token) {
-    return next(new ApiError(401, "Unauthorized"));
-  }
-
+async function getUserFromToken(token) {
   try {
     const payload = jwt.verify(token, env.jwtAccessSecret);
     const rows = await query(
@@ -25,9 +20,9 @@ async function authenticate(req, res, next) {
     );
     const user = rows[0];
     if (!user || !user.is_active) {
-      return next(new ApiError(401, "Invalid user"));
+      throw new ApiError(401, "Invalid user");
     }
-    req.user = {
+    return {
       id: user.id,
       name: user.name,
       email: user.email,
@@ -37,10 +32,29 @@ async function authenticate(req, res, next) {
       createdAt: user.created_at,
       updatedAt: user.updated_at
     };
-    return next();
   } catch (error) {
-    return next(new ApiError(401, "Invalid token"));
+    if (error instanceof ApiError) throw error;
+    throw new ApiError(401, "Invalid token");
   }
 }
+
+async function authenticate(req, res, next) {
+  const token = getBearerToken(req);
+  if (!token) {
+    return next(new ApiError(401, "Unauthorized"));
+  }
+
+  try {
+    req.user = await getUserFromToken(token);
+    return next();
+  } catch (error) {
+    return next(error);
+  }
+}
+
+export {
+  getBearerToken,
+  getUserFromToken
+};
 
 export default authenticate;

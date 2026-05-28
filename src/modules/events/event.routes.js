@@ -1,13 +1,14 @@
 import express from "express";
 import { body, query as queryValidator } from "express-validator";
 import authenticate from "../../middlewares/authenticate.js";
+import optionalAuthenticate from "../../middlewares/optionalAuthenticate.js";
 import authorize from "../../middlewares/authorize.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import controller from "./event.controller.js";
 
 const router = express.Router();
 
-router.get("/", controller.listEvents);
+router.get("/", optionalAuthenticate, controller.listEvents);
 router.get(
   "/me/purchased",
   [queryValidator("userId").isUUID(), validateRequest],

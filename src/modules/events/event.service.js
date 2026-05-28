@@ -159,8 +159,24 @@ function buildEventWhere(queryParams) {
   };
 }
 
-async function listEvents(queryParams) {
+function applyCreatedByFilter(queryParams, user, clauses, values) {
+  const createdBy = getPayloadValue(queryParams, "createdBy", "created_by");
+  if (!createdBy) return;
+
+  if (createdBy === "me") {
+    if (!user) throw new ApiError(401, "Unauthorized");
+    clauses.push("e.created_by = ?");
+    values.push(user.id);
+    return;
+  }
+
+  clauses.push("e.created_by = ?");
+  values.push(createdBy);
+}
+
+async function listEvents(queryParams, user = null) {
   const { clauses, values } = buildEventWhere(queryParams);
+  applyCreatedByFilter(queryParams, user, clauses, values);
   return fetchEvents({
     whereClauses: clauses,
     values,
