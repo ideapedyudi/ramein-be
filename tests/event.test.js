@@ -37,6 +37,10 @@ describe("Event API", () => {
         cityId,
         addressDetail: "Main road",
         banner,
+        event_type: "online",
+        label_online: "Zoom Meeting",
+        url_online: "https://zoom.us/j/demo",
+        payment_type: "paid",
         startDateTime: "2030-01-10T19:00:00.000Z",
         endDateTime: "2030-01-10T22:00:00.000Z",
         ticketTypes: [
@@ -53,6 +57,11 @@ describe("Event API", () => {
     expect(response.statusCode).toBe(201);
     expect(response.body.data.title).toBe("Concert 1");
     expect(response.body.data.banner).toBe(banner);
+    expect(response.body.data.eventType).toBe("online");
+    expect(response.body.data.labelOnline).toBe("Zoom Meeting");
+    expect(response.body.data.urlOnline).toBe("https://zoom.us/j/demo");
+    expect(response.body.data.paymentType).toBe("paid");
+    expect(response.body.data.visibility).toBe("private");
     expect(response.body.data.publishedBy).toBe("user");
   });
 
@@ -165,5 +174,45 @@ describe("Event API", () => {
     expect(publishRes.body.data.isPublished).toBe(true);
     expect(publishRes.body.data.status).toBe("published");
     expect(publishRes.body.data.publishedBy).toBe("user");
+  });
+
+  test("admin-created event is public", async () => {
+    await createUser({
+      name: "Admin Creator",
+      email: "admin.creator@test.com",
+      password: "password123",
+      role: "admin"
+    });
+    const adminToken = await login("admin.creator@test.com", "password123");
+
+    const categoryId = await createCategory("Admin Event Category");
+    const organizerId = await createOrganizer({ name: "Admin Promotor" });
+    const cityId = await createCity("Denpasar");
+
+    const response = await request(app)
+      .post("/api/v1/events")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Admin Event",
+        description: "Created by admin",
+        categoryId,
+        organizerId,
+        cityId,
+        addressDetail: "Admin venue",
+        startDateTime: "2030-05-10T19:00:00.000Z",
+        endDateTime: "2030-05-10T22:00:00.000Z",
+        ticketTypes: [
+          {
+            name: "Regular",
+            price: 100000,
+            quota: 100,
+            saleStartAt: "2030-01-10T00:00:00.000Z",
+            saleEndAt: "2030-05-10T18:00:00.000Z"
+          }
+        ]
+      });
+
+    expect(response.statusCode).toBe(201);
+    expect(response.body.data.visibility).toBe("public");
   });
 });

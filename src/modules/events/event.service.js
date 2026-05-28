@@ -13,6 +13,11 @@ function normalizeEventRow(row) {
     cityId: row.city_id,
     addressDetail: row.address_detail,
     banner: row.banner,
+    eventType: row.event_type,
+    labelOnline: row.label_online,
+    urlOnline: row.url_online,
+    paymentType: row.payment_type,
+    visibility: row.visibility,
     startDateTime: row.start_datetime,
     endDateTime: row.end_datetime,
     status: row.status,
@@ -41,6 +46,11 @@ function normalizeEventRow(row) {
       email: row.creator_email
     }
   };
+}
+
+function getPayloadValue(payload, camelKey, snakeKey) {
+  if (payload[camelKey] !== undefined) return payload[camelKey];
+  return payload[snakeKey];
 }
 
 function normalizeTicketRow(row) {
@@ -174,6 +184,12 @@ async function createEvent(payload, user) {
   }
 
   const eventId = generateId();
+  const eventType = getPayloadValue(payload, "eventType", "event_type");
+  const labelOnline = getPayloadValue(payload, "labelOnline", "label_online");
+  const urlOnline = getPayloadValue(payload, "urlOnline", "url_online");
+  const paymentType = getPayloadValue(payload, "paymentType", "payment_type") || "paid";
+  const visibility = user.role === "admin" ? "public" : "private";
+
   await transaction(async (connection) => {
     await connection.execute(
       `INSERT INTO events (
@@ -186,12 +202,17 @@ async function createEvent(payload, user) {
         city_id,
         address_detail,
         banner,
+        event_type,
+        label_online,
+        url_online,
+        payment_type,
+        visibility,
         start_datetime,
         end_datetime,
         status,
         is_published,
         published_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?)`,
       [
         eventId,
         payload.title,
@@ -202,6 +223,11 @@ async function createEvent(payload, user) {
         payload.cityId,
         payload.addressDetail,
         payload.banner || null,
+        eventType || null,
+        labelOnline || null,
+        urlOnline || null,
+        paymentType,
+        visibility,
         payload.startDateTime,
         payload.endDateTime,
         user.role
@@ -253,6 +279,14 @@ function buildEventUpdate(payload, user) {
     cityId: "city_id",
     addressDetail: "address_detail",
     banner: "banner",
+    eventType: "event_type",
+    event_type: "event_type",
+    labelOnline: "label_online",
+    label_online: "label_online",
+    urlOnline: "url_online",
+    url_online: "url_online",
+    paymentType: "payment_type",
+    payment_type: "payment_type",
     startDateTime: "start_datetime",
     endDateTime: "end_datetime",
     status: "status",
