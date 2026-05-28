@@ -58,6 +58,7 @@ describe("Event API", () => {
     expect(response.body.data.title).toBe("Concert 1");
     expect(response.body.data.banner).toBe(banner);
     expect(response.body.data.eventType).toBe("online");
+    expect(response.body.data.event_type).toBe("online");
     expect(response.body.data.labelOnline).toBe("Zoom Meeting");
     expect(response.body.data.urlOnline).toBe("https://zoom.us/j/demo");
     expect(response.body.data.paymentType).toBe("paid");

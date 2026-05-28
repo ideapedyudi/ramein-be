@@ -28,6 +28,7 @@ cp .env.example .env
 npm run db:init
 ```
 Perintah ini akan me-reset tabel aplikasi lalu membuat ulang schema terbaru.
+Kalau nama database bukan database dev/test yang jelas, set `DB_RESET_CONFIRM=yes` dulu sebelum menjalankan command ini.
 
 4. Jalankan server
 ```bash
@@ -42,6 +43,7 @@ MYSQL_DATABASE=ramein_test
 NODE_ENV=test
 npm test
 ```
+Bootstrap test akan menolak reset kalau `MYSQL_DATABASE` tidak berakhiran `_test`.
 
 `tests/setup.js` akan membuat tabel dari `src/db/schema.sql` dan membersihkan data tiap test.
 

@@ -2,6 +2,7 @@ import fs from "fs/promises";
 import mysql from "mysql2/promise";
 import env from "../config/env.js";
 import { query, closePool } from "../db/mysql.js";
+import { assertSafeDbReset } from "./safeDbReset.js";
 
 const tables = [
   "transaction_items",
@@ -28,6 +29,12 @@ async function ensureDatabase() {
 }
 
 async function run() {
+  assertSafeDbReset({
+    databaseName: env.mysqlDatabase,
+    nodeEnv: env.nodeEnv,
+    purpose: "db:init"
+  });
+
   await ensureDatabase();
 
   await query("SET FOREIGN_KEY_CHECKS = 0");

@@ -3,6 +3,7 @@ import mysql from "mysql2/promise";
 import { jest } from "@jest/globals";
 import env from "../src/config/env.js";
 import { query, closePool } from "../src/db/mysql.js";
+import { assertSafeDbReset } from "../src/utils/safeDbReset.js";
 
 jest.setTimeout(30000);
 
@@ -52,6 +53,12 @@ async function runSchema() {
 }
 
 beforeAll(async () => {
+  assertSafeDbReset({
+    databaseName: env.mysqlDatabase,
+    nodeEnv: env.nodeEnv,
+    purpose: "test-setup"
+  });
+
   await ensureDatabase();
   await runSchema();
 });
