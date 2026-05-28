@@ -24,9 +24,9 @@ async function createCategory(name) {
   return id;
 }
 
-async function createCity(name) {
+async function createCity(name, provinsi = null) {
   const id = generateId();
-  await query("INSERT INTO cities (id, name, is_active) VALUES (?, ?, 1)", [id, name]);
+  await query("INSERT INTO cities (id, name, provinsi, is_active) VALUES (?, ?, ?, 1)", [id, name, provinsi]);
   return id;
 }
 

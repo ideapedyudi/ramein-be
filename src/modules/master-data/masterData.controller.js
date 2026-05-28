@@ -7,6 +7,11 @@ const list = asyncHandler(async (req, res) => {
   return successResponse(res, 200, "Master data list", data);
 });
 
+const detail = asyncHandler(async (req, res) => {
+  const data = await service.detail(req.params.resource, req.params.id);
+  return successResponse(res, 200, "Master data detail", data);
+});
+
 const create = asyncHandler(async (req, res) => {
   const data = await service.create(req.params.resource, req.body);
   return successResponse(res, 201, "Master data created", data);
@@ -24,6 +29,7 @@ const remove = asyncHandler(async (req, res) => {
 
 export default {
   list,
+  detail,
   create,
   update,
   remove

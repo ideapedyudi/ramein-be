@@ -33,6 +33,13 @@ function normalizeMasterRow(resource, row) {
     };
   }
 
+  if (resource === "cities") {
+    return {
+      ...base,
+      provinsi: row.provinsi
+    };
+  }
+
   return base;
 }
 
@@ -42,13 +49,32 @@ async function list(resource) {
   return rows.map((row) => normalizeMasterRow(resource, row));
 }
 
+async function detail(resource, id) {
+  const table = getTable(resource);
+  const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+  if (rows.length === 0) throw new ApiError(404, "Data not found");
+
+  return normalizeMasterRow(resource, rows[0]);
+}
+
 async function create(resource, payload) {
   const table = getTable(resource);
 
-  if (resource === "categories" || resource === "cities") {
+  if (resource === "categories") {
     const id = generateId();
     await query(`INSERT INTO ${table} (id, name, is_active) VALUES (?, ?, 1)`, [id, payload.name]);
     const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+    return normalizeMasterRow(resource, rows[0]);
+  }
+
+  if (resource === "cities") {
+    const id = generateId();
+    await query("INSERT INTO cities (id, name, provinsi, is_active) VALUES (?, ?, ?, 1)", [
+      id,
+      payload.name,
+      payload.provinsi || null
+    ]);
+    const rows = await query("SELECT * FROM cities WHERE id = ? LIMIT 1", [id]);
     return normalizeMasterRow(resource, rows[0]);
   }
 
@@ -80,6 +106,11 @@ function buildUpdate(resource, payload) {
   if (payload.isActive !== undefined) {
     fields.push("is_active = ?");
     values.push(payload.isActive ? 1 : 0);
+  }
+
+  if (resource === "cities" && payload.provinsi !== undefined) {
+    fields.push("provinsi = ?");
+    values.push(payload.provinsi);
   }
 
   if (resource === "organizers") {
@@ -130,6 +161,7 @@ async function remove(resource, id) {
 
 export default {
   list,
+  detail,
   create,
   update,
   remove
