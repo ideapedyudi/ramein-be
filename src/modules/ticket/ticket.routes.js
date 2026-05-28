@@ -2,11 +2,11 @@ import express from "express";
 import { body, param } from "express-validator";
 import authenticate from "../../middlewares/authenticate.js";
 import validateRequest from "../../middlewares/validateRequest.js";
-import controller from "./eventPaid.controller.js";
+import controller from "./ticket.controller.js";
 
 const router = express.Router();
 
-router.get("/me", authenticate, controller.getMyEventPaid);
+router.get("/me", authenticate, controller.getMyTickets);
 
 router.post(
   "/qr-code/scan",

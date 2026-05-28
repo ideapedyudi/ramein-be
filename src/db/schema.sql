@@ -132,7 +132,7 @@ CREATE TABLE IF NOT EXISTS transaction_items (
   CONSTRAINT fk_transaction_items_ticket FOREIGN KEY (ticket_type_id) REFERENCES event_ticket_types (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS event_paid (
+CREATE TABLE IF NOT EXISTS ticket (
   id CHAR(36) NOT NULL,
   user_id CHAR(36) NOT NULL,
   event_id CHAR(36) NOT NULL,
@@ -143,14 +143,14 @@ CREATE TABLE IF NOT EXISTS event_paid (
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (id),
-  UNIQUE KEY uq_event_paid_transaction_id (transaction_id),
-  UNIQUE KEY uq_event_paid_qr_code (qr_code),
-  KEY idx_event_paid_user_id (user_id),
-  KEY idx_event_paid_event_id (event_id),
-  KEY idx_event_paid_attendance_status (attendance_status),
-  CONSTRAINT fk_event_paid_user FOREIGN KEY (user_id) REFERENCES users (id),
-  CONSTRAINT fk_event_paid_event FOREIGN KEY (event_id) REFERENCES events (id),
-  CONSTRAINT fk_event_paid_transaction FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+  UNIQUE KEY uq_ticket_transaction_id (transaction_id),
+  UNIQUE KEY uq_ticket_qr_code (qr_code),
+  KEY idx_ticket_user_id (user_id),
+  KEY idx_ticket_event_id (event_id),
+  KEY idx_ticket_attendance_status (attendance_status),
+  CONSTRAINT fk_ticket_purchase_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT fk_ticket_purchase_event FOREIGN KEY (event_id) REFERENCES events (id),
+  CONSTRAINT fk_ticket_purchase_transaction FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS payment_logs (

@@ -9,7 +9,7 @@ jest.setTimeout(30000);
 
 const tables = [
   "transaction_items",
-  "event_paid",
+  "ticket",
   "payment_logs",
   "transactions",
   "event_ticket_types",

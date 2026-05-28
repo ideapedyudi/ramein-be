@@ -30,16 +30,16 @@ function mapTransactionRow(row) {
   };
 }
 
-function mapEventPaidRow(row) {
-  if (!row.event_paid_id) return null;
+function mapTicketRow(row) {
+  if (!row.ticket_id) return null;
 
   return {
-    id: row.event_paid_id,
+    id: row.ticket_id,
     qrCode: row.qr_code,
     attendanceStatus: row.attendance_status,
     attendedAt: row.attended_at,
-    createdAt: row.event_paid_created_at,
-    updatedAt: row.event_paid_updated_at
+    createdAt: row.ticket_created_at,
+    updatedAt: row.ticket_updated_at
   };
 }
 
@@ -212,12 +212,12 @@ async function getMyPurchasedEvents(userId) {
       t.status AS transaction_status,
       t.paid_at,
       t.created_at AS transaction_created_at,
-      ep.id AS event_paid_id,
-      ep.qr_code,
-      ep.attendance_status,
-      ep.attended_at,
-      ep.created_at AS event_paid_created_at,
-      ep.updated_at AS event_paid_updated_at,
+      tk.id AS ticket_id,
+      tk.qr_code,
+      tk.attendance_status,
+      tk.attended_at,
+      tk.created_at AS ticket_created_at,
+      tk.updated_at AS ticket_updated_at,
       e.id AS event_id,
       e.title AS event_title,
       e.description AS event_description,
@@ -237,7 +237,7 @@ async function getMyPurchasedEvents(userId) {
     JOIN categories c ON c.id = e.category_id
     JOIN cities ci ON ci.id = e.city_id
     JOIN organizers o ON o.id = e.organizer_id
-    LEFT JOIN event_paid ep ON ep.transaction_id = t.id
+    LEFT JOIN ticket tk ON tk.transaction_id = t.id
     WHERE t.user_id = ? AND t.status = 'paid'
     ORDER BY t.paid_at DESC, t.created_at DESC`,
     [userId]
@@ -304,7 +304,7 @@ async function getMyPurchasedEvents(userId) {
           status: row.transaction_status,
           paidAt: row.paid_at,
           createdAt: row.transaction_created_at,
-          eventPaid: mapEventPaidRow(row)
+          ticket: mapTicketRow(row)
         }
       });
       continue;
@@ -419,7 +419,7 @@ async function handleMidtransNotification(payload) {
 
     if (mappedStatus === "paid") {
       await connection.execute(
-        `INSERT INTO event_paid (
+        `INSERT INTO ticket (
           id,
           user_id,
           event_id,

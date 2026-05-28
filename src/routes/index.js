@@ -3,7 +3,7 @@ import authRoutes from "../modules/auth/auth.routes.js";
 import userRoutes from "../modules/users/user.routes.js";
 import masterDataRoutes from "../modules/master-data/masterData.routes.js";
 import eventMeRoutes from "../modules/event-me/eventMe.routes.js";
-import eventPaidRoutes from "../modules/event-paid/eventPaid.routes.js";
+import ticketRoutes from "../modules/ticket/ticket.routes.js";
 import eventRoutes from "../modules/events/event.routes.js";
 import transactionRoutes from "../modules/transactions/transaction.routes.js";
 import paymentRoutes from "../modules/payments/payment.routes.js";
@@ -24,6 +24,6 @@ router.use("/events", eventRoutes);
 router.use("/transactions", transactionRoutes);
 router.use("/payments", paymentRoutes);
 router.use("/event-me", eventMeRoutes);
-router.use("/event-paid", eventPaidRoutes);
+router.use("/ticket", ticketRoutes);
 
 export default router;

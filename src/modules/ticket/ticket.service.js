@@ -1,7 +1,7 @@
 import { query, transaction } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
 
-const eventPaidSelect = `
+const ticketSelect = `
   ep.*,
   u.name AS user_name,
   u.email AS user_email,
@@ -37,7 +37,7 @@ const eventPaidSelect = `
   t.updated_at AS transaction_updated_at
 `;
 
-function mapEventPaidRow(row) {
+function mapTicketRow(row) {
   return {
     id: row.id,
     userId: row.user_id,
@@ -114,10 +114,10 @@ function mapTransactionItemRow(row) {
   };
 }
 
-async function attachTransactionItems(eventPaidList) {
-  if (eventPaidList.length === 0) return eventPaidList;
+async function attachTransactionItems(ticketList) {
+  if (ticketList.length === 0) return ticketList;
 
-  const transactionIds = eventPaidList.map((item) => item.transactionId);
+  const transactionIds = ticketList.map((item) => item.transactionId);
   const placeholders = transactionIds.map(() => "?").join(", ");
   const rows = await query(
     `SELECT * FROM transaction_items WHERE transaction_id IN (${placeholders}) ORDER BY id ASC`,
@@ -131,7 +131,7 @@ async function attachTransactionItems(eventPaidList) {
     itemMap.set(row.transaction_id, list);
   }
 
-  return eventPaidList.map((item) => ({
+  return ticketList.map((item) => ({
     ...item,
     transaction: item.transaction
       ? {
@@ -142,11 +142,11 @@ async function attachTransactionItems(eventPaidList) {
   }));
 }
 
-async function getMyEventPaid(userId) {
+async function getMyTickets(userId) {
   const rows = await query(
     `SELECT
-      ${eventPaidSelect}
-    FROM event_paid ep
+      ${ticketSelect}
+    FROM ticket ep
     JOIN users u ON u.id = ep.user_id
     JOIN events e ON e.id = ep.event_id
     JOIN categories c ON c.id = e.category_id
@@ -158,14 +158,14 @@ async function getMyEventPaid(userId) {
     [userId]
   );
 
-  return attachTransactionItems(rows.map(mapEventPaidRow));
+  return attachTransactionItems(rows.map(mapTicketRow));
 }
 
 async function getByQrCode(qrCode) {
   const rows = await query(
     `SELECT
-      ${eventPaidSelect}
-    FROM event_paid ep
+      ${ticketSelect}
+    FROM ticket ep
     JOIN users u ON u.id = ep.user_id
     JOIN events e ON e.id = ep.event_id
     JOIN categories c ON c.id = e.category_id
@@ -177,11 +177,11 @@ async function getByQrCode(qrCode) {
     [qrCode]
   );
 
-  return rows[0] ? mapEventPaidRow(rows[0]) : null;
+  return rows[0] ? mapTicketRow(rows[0]) : null;
 }
 
-function canScanEventPaid(eventPaid, user) {
-  return user.role === "admin" || eventPaid.event?.createdBy === user.id;
+function canScanTicket(ticket, user) {
+  return user.role === "admin" || ticket.event?.createdBy === user.id;
 }
 
 async function scanQrCode(qrCode, user) {
@@ -190,7 +190,7 @@ async function scanQrCode(qrCode, user) {
     throw new ApiError(404, "QR code not found");
   }
 
-  if (!canScanEventPaid(existing, user)) {
+  if (!canScanTicket(existing, user)) {
     throw new ApiError(403, "You are not allowed to scan this QR code");
   }
 
@@ -203,14 +203,14 @@ async function scanQrCode(qrCode, user) {
 
   return transaction(async (connection) => {
     await connection.execute(
-      "UPDATE event_paid SET attendance_status = 'attended', attended_at = UTC_TIMESTAMP() WHERE qr_code = ? AND attendance_status = 'not_attended'",
+      "UPDATE ticket SET attendance_status = 'attended', attended_at = UTC_TIMESTAMP() WHERE qr_code = ? AND attendance_status = 'not_attended'",
       [qrCode]
     );
 
     const [rows] = await connection.execute(
       `SELECT
-        ${eventPaidSelect}
-      FROM event_paid ep
+        ${ticketSelect}
+      FROM ticket ep
       JOIN users u ON u.id = ep.user_id
       JOIN events e ON e.id = ep.event_id
       JOIN categories c ON c.id = e.category_id
@@ -223,14 +223,14 @@ async function scanQrCode(qrCode, user) {
     );
 
     return {
-      ...mapEventPaidRow(rows[0]),
+      ...mapTicketRow(rows[0]),
       alreadyAttended: false
     };
   });
 }
 
 export default {
-  getMyEventPaid,
+  getMyTickets,
   getByQrCode,
   scanQrCode
 };
