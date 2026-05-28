@@ -6,6 +6,7 @@ import controller from "./ticket.controller.js";
 
 const router = express.Router();
 
+router.get("/", authenticate, controller.getMyTickets);
 router.get("/me", authenticate, controller.getMyTickets);
 
 router.post(

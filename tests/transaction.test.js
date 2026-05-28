@@ -162,6 +162,14 @@ describe("Transaction API", () => {
       }
     ]);
 
+    const ticketIndexRes = await request(app)
+      .get("/api/v1/ticket")
+      .set("Authorization", `Bearer ${buyerToken}`);
+
+    expect(ticketIndexRes.statusCode).toBe(200);
+    expect(ticketIndexRes.body.data).toHaveLength(1);
+    expect(ticketIndexRes.body.data[0].id).toBe(ticketListRes.body.data[0].id);
+
     const qrCode = ticketListRes.body.data[0].qrCode;
     const scanRes = await request(app)
       .post("/api/v1/ticket/qr-code/scan")
