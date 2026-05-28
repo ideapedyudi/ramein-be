@@ -20,6 +20,7 @@ router.post(
     body("organizerId").isUUID(),
     body("cityId").isUUID(),
     body("addressDetail").notEmpty(),
+    body("banner").optional().isString(),
     body("startDateTime").isISO8601(),
     body("endDateTime").isISO8601(),
     body("ticketTypes").isArray({ min: 1 }),

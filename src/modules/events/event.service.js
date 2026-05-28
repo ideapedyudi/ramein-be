@@ -12,11 +12,12 @@ function normalizeEventRow(row) {
     createdBy: row.created_by,
     cityId: row.city_id,
     addressDetail: row.address_detail,
-    bannerUrl: row.banner_url,
+    banner: row.banner,
     startDateTime: row.start_datetime,
     endDateTime: row.end_datetime,
     status: row.status,
     isPublished: Boolean(row.is_published),
+    publishedBy: row.published_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     category: {
@@ -162,7 +163,7 @@ async function getEventById(id) {
   return events[0];
 }
 
-async function createEvent(payload, userId) {
+async function createEvent(payload, user) {
   const organizerRows = await query(
     "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
     [payload.organizerId]
@@ -184,24 +185,26 @@ async function createEvent(payload, userId) {
         created_by,
         city_id,
         address_detail,
-        banner_url,
+        banner,
         start_datetime,
         end_datetime,
         status,
-        is_published
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0)`,
+        is_published,
+        published_by
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?)`,
       [
         eventId,
         payload.title,
         payload.description,
         payload.categoryId,
         payload.organizerId,
-        userId,
+        user.id,
         payload.cityId,
         payload.addressDetail,
-        payload.bannerUrl || null,
+        payload.banner || null,
         payload.startDateTime,
-        payload.endDateTime
+        payload.endDateTime,
+        user.role
       ]
     );
 
@@ -249,7 +252,7 @@ function buildEventUpdate(payload, user) {
     organizerId: "organizer_id",
     cityId: "city_id",
     addressDetail: "address_detail",
-    bannerUrl: "banner_url",
+    banner: "banner",
     startDateTime: "start_datetime",
     endDateTime: "end_datetime",
     status: "status",
@@ -336,13 +339,10 @@ async function deleteEvent(id, user) {
   await query("DELETE FROM events WHERE id = ?", [id]);
 }
 
-async function publishEvent(id, adminUser) {
-  if (adminUser.role !== "admin") throw new ApiError(403, "Forbidden");
+async function publishEvent(id, user) {
+  if (user.role !== "admin") throw new ApiError(403, "Forbidden");
 
-  const result = await query(
-    "UPDATE events SET status = 'published', is_published = 1 WHERE id = ?",
-    [id]
-  );
+  const result = await query("UPDATE events SET status = 'published', is_published = 1 WHERE id = ?", [id]);
   if (result.affectedRows === 0) throw new ApiError(404, "Event not found");
 
   return getEventById(id);

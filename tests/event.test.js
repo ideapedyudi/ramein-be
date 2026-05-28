@@ -24,6 +24,7 @@ describe("Event API", () => {
     const categoryId = await createCategory("Music");
     const organizerId = await createOrganizer({ name: "Promotor A" });
     const cityId = await createCity("Jakarta");
+    const banner = Buffer.from("event-banner").toString("base64");
 
     const response = await request(app)
       .post("/api/v1/events")
@@ -35,6 +36,7 @@ describe("Event API", () => {
         organizerId,
         cityId,
         addressDetail: "Main road",
+        banner,
         startDateTime: "2030-01-10T19:00:00.000Z",
         endDateTime: "2030-01-10T22:00:00.000Z",
         ticketTypes: [
@@ -50,6 +52,8 @@ describe("Event API", () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.body.data.title).toBe("Concert 1");
+    expect(response.body.data.banner).toBe(banner);
+    expect(response.body.data.publishedBy).toBe("user");
   });
 
   test("user cannot edit another user's event", async () => {
@@ -160,5 +164,6 @@ describe("Event API", () => {
     expect(publishRes.statusCode).toBe(200);
     expect(publishRes.body.data.isPublished).toBe(true);
     expect(publishRes.body.data.status).toBe("published");
+    expect(publishRes.body.data.publishedBy).toBe("user");
   });
 });
