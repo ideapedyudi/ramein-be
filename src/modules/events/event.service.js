@@ -102,6 +102,37 @@ async function attachTicketTypes(events) {
   }));
 }
 
+async function fetchEvents({ whereClauses = [], values = [], orderBy = "e.start_datetime ASC", limit = null } = {}) {
+  const where = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+  const limitClause = limit ? "LIMIT ?" : "";
+  const sqlValues = limit ? [...values, limit] : values;
+
+  const rows = await query(
+    `SELECT
+      e.*,
+      c.name AS category_name,
+      ci.name AS city_name,
+      o.name AS organizer_name,
+      o.contact_name AS organizer_contact_name,
+      o.contact_email AS organizer_contact_email,
+      o.contact_phone AS organizer_contact_phone,
+      u.name AS creator_name,
+      u.email AS creator_email
+    FROM events e
+    JOIN categories c ON c.id = e.category_id
+    JOIN cities ci ON ci.id = e.city_id
+    JOIN organizers o ON o.id = e.organizer_id
+    JOIN users u ON u.id = e.created_by
+    ${where}
+    ORDER BY ${orderBy}
+    ${limitClause}`,
+    sqlValues
+  );
+
+  const events = rows.map(normalizeEventRow);
+  return attachTicketTypes(events);
+}
+
 function buildEventWhere(queryParams) {
   const clauses = [];
   const values = [];
@@ -123,64 +154,62 @@ function buildEventWhere(queryParams) {
   }
 
   return {
-    where: clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "",
+    clauses,
     values
   };
 }
 
 async function listEvents(queryParams) {
-  const { where, values } = buildEventWhere(queryParams);
-  const rows = await query(
-    `SELECT
-      e.*,
-      c.name AS category_name,
-      ci.name AS city_name,
-      o.name AS organizer_name,
-      o.contact_name AS organizer_contact_name,
-      o.contact_email AS organizer_contact_email,
-      o.contact_phone AS organizer_contact_phone,
-      u.name AS creator_name,
-      u.email AS creator_email
-    FROM events e
-    JOIN categories c ON c.id = e.category_id
-    JOIN cities ci ON ci.id = e.city_id
-    JOIN organizers o ON o.id = e.organizer_id
-    JOIN users u ON u.id = e.created_by
-    ${where}
-    ORDER BY e.start_datetime ASC`,
-    values
-  );
-
-  const events = rows.map(normalizeEventRow);
-  return attachTicketTypes(events);
+  const { clauses, values } = buildEventWhere(queryParams);
+  return fetchEvents({
+    whereClauses: clauses,
+    values,
+    orderBy: "e.start_datetime ASC"
+  });
 }
 
 async function getEventById(id) {
-  const rows = await query(
-    `SELECT
-      e.*,
-      c.name AS category_name,
-      ci.name AS city_name,
-      o.name AS organizer_name,
-      o.contact_name AS organizer_contact_name,
-      o.contact_email AS organizer_contact_email,
-      o.contact_phone AS organizer_contact_phone,
-      u.name AS creator_name,
-      u.email AS creator_email
-    FROM events e
-    JOIN categories c ON c.id = e.category_id
-    JOIN cities ci ON ci.id = e.city_id
-    JOIN organizers o ON o.id = e.organizer_id
-    JOIN users u ON u.id = e.created_by
-    WHERE e.id = ?
-    LIMIT 1`,
-    [id]
-  );
+  const rows = await fetchEvents({
+    whereClauses: ["e.id = ?"],
+    values: [id],
+    limit: 1
+  });
 
   if (rows.length === 0) throw new ApiError(404, "Event not found");
+  return rows[0];
+}
 
-  const events = await attachTicketTypes([normalizeEventRow(rows[0])]);
-  return events[0];
+async function listTrendingEvents() {
+  return fetchEvents({
+    whereClauses: [],
+    orderBy: "e.created_at DESC, e.id DESC",
+    limit: 8
+  });
+}
+
+async function getCategoryIdByName(categoryName) {
+  const rows = await query(
+    "SELECT id FROM categories WHERE LOWER(name) = LOWER(?) LIMIT 1",
+    [categoryName]
+  );
+
+  return rows[0]?.id || null;
+}
+
+async function listRecommendedEvents(queryParams = {}) {
+  const categoryName = queryParams.interest || queryParams.category || "Konser";
+  const categoryId = await getCategoryIdByName(categoryName);
+
+  if (!categoryId) {
+    return [];
+  }
+
+  return fetchEvents({
+    whereClauses: ["e.status = 'published'", "e.category_id = ?"],
+    values: [categoryId],
+    orderBy: "e.created_at DESC",
+    limit: 5
+  });
 }
 
 async function createEvent(payload, user) {
@@ -395,6 +424,8 @@ async function publishEvent(id, user) {
 export default {
   listEvents,
   getEventById,
+  listTrendingEvents,
+  listRecommendedEvents,
   createEvent,
   updateEvent,
   deleteEvent,

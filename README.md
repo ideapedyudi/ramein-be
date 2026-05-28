@@ -56,7 +56,10 @@ Bootstrap test akan menolak reset kalau `MYSQL_DATABASE` tidak berakhiran `_test
 - Auth: `/auth/register`, `/auth/login`, `/auth/refresh-token`, `/auth/logout`
 - User: `/users/me`, `/users/admin/list`
 - Master data: `/master/categories`, `/master/cities`, `/master/organizers`
-- Event: `/events`, `/events/:id`, `/events/:id/publish`
+- Event: `/events`, `/events/trending`, `/events/recommended`, `/events/:id`, `/events/:id/publish`
+
+`/events/trending` menampilkan 8 event terbaru yang baru dibuat.
+`/events/recommended` default ke kategori `Konser` jika tidak ada parameter minat/category yang dikirim.
 - Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`
 - Payment webhook: `/payments/midtrans/notification`
 

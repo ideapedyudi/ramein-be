@@ -12,6 +12,10 @@ async function login(email, password) {
   return res.body.data.accessToken;
 }
 
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 describe("Event API", () => {
   test("user can create event", async () => {
     await request(app).post("/api/v1/auth/register").send({
@@ -215,5 +219,76 @@ describe("Event API", () => {
 
     expect(response.statusCode).toBe(201);
     expect(response.body.data.visibility).toBe("public");
+  });
+
+  test("can get trending and recommended event lists", async () => {
+    await createUser({
+      name: "Event Curator",
+      email: "curator@test.com",
+      password: "password123",
+      role: "admin"
+    });
+    const token = await login("curator@test.com", "password123");
+
+    const konserCategoryId = await createCategory("Konser");
+    const seminarCategoryId = await createCategory("Seminar");
+    const organizerId = await createOrganizer({ name: "Trending Promotor" });
+    const cityId = await createCity("Jakarta");
+
+    const eventSeeds = [
+      { title: "Konser 1", categoryId: konserCategoryId },
+      { title: "Konser 2", categoryId: konserCategoryId },
+      { title: "Seminar 1", categoryId: seminarCategoryId },
+      { title: "Konser 3", categoryId: konserCategoryId },
+      { title: "Seminar 2", categoryId: seminarCategoryId },
+      { title: "Konser 4", categoryId: konserCategoryId },
+      { title: "Seminar 3", categoryId: seminarCategoryId },
+      { title: "Konser 5", categoryId: konserCategoryId }
+    ];
+
+    for (const seed of eventSeeds) {
+      const createRes = await request(app)
+        .post("/api/v1/events")
+        .set("Authorization", `Bearer ${token}`)
+        .send({
+          title: seed.title,
+          description: `${seed.title} description`,
+          categoryId: seed.categoryId,
+          organizerId,
+          cityId,
+          addressDetail: "Main venue",
+          startDateTime: "2030-06-10T19:00:00.000Z",
+          endDateTime: "2030-06-10T22:00:00.000Z",
+          ticketTypes: [
+            {
+              name: "Regular",
+              price: 100000,
+              quota: 50,
+              saleStartAt: "2030-01-01T00:00:00.000Z",
+              saleEndAt: "2030-06-10T18:00:00.000Z"
+            }
+          ]
+        });
+
+      if (seed.categoryId === konserCategoryId) {
+        await request(app)
+          .post(`/api/v1/events/${createRes.body.data.id}/publish`)
+          .set("Authorization", `Bearer ${token}`)
+          .send();
+      }
+
+      await wait(1100);
+    }
+
+    const trendingRes = await request(app).get("/api/v1/events/trending");
+    expect(trendingRes.statusCode).toBe(200);
+    expect(trendingRes.body.data).toHaveLength(8);
+    expect(trendingRes.body.data[0].title).toBe("Konser 5");
+    expect(trendingRes.body.data[7].title).toBe("Konser 1");
+
+    const recommendedRes = await request(app).get("/api/v1/events/recommended");
+    expect(recommendedRes.statusCode).toBe(200);
+    expect(recommendedRes.body.data).toHaveLength(5);
+    expect(recommendedRes.body.data.every((event) => event.category.name === "Konser")).toBe(true);
   });
 });

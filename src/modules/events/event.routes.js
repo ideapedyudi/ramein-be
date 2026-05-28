@@ -8,6 +8,8 @@ import controller from "./event.controller.js";
 const router = express.Router();
 
 router.get("/", controller.listEvents);
+router.get("/trending", controller.trendingEvents);
+router.get("/recommended", controller.recommendedEvents);
 router.get("/:id", controller.getEvent);
 
 router.post(
