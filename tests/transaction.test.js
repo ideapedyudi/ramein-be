@@ -170,6 +170,28 @@ describe("Transaction API", () => {
     expect(ticketIndexRes.body.data).toHaveLength(1);
     expect(ticketIndexRes.body.data[0].id).toBe(ticketListRes.body.data[0].id);
 
+    const allEventTicketsRes = await request(app)
+      .get(`/api/v1/ticket/event-ticket/${eventId}/all`)
+      .set("Authorization", `Bearer ${buyerToken}`);
+
+    expect(allEventTicketsRes.statusCode).toBe(200);
+    expect(allEventTicketsRes.body.data).toHaveLength(1);
+
+    const notAttendedEventTicketsRes = await request(app)
+      .get(`/api/v1/ticket/event-ticket/${eventId}/tidak_hadir`)
+      .set("Authorization", `Bearer ${buyerToken}`);
+
+    expect(notAttendedEventTicketsRes.statusCode).toBe(200);
+    expect(notAttendedEventTicketsRes.body.data).toHaveLength(1);
+    expect(notAttendedEventTicketsRes.body.data[0].attendanceStatus).toBe("not_attended");
+
+    const emptyAttendedEventTicketsRes = await request(app)
+      .get(`/api/v1/ticket/event-ticket/${eventId}/hadir`)
+      .set("Authorization", `Bearer ${buyerToken}`);
+
+    expect(emptyAttendedEventTicketsRes.statusCode).toBe(200);
+    expect(emptyAttendedEventTicketsRes.body.data).toHaveLength(0);
+
     const qrCode = ticketListRes.body.data[0].qrCode;
     const scanRes = await request(app)
       .post("/api/v1/ticket/qr-code/scan")
@@ -179,6 +201,21 @@ describe("Transaction API", () => {
     expect(scanRes.statusCode).toBe(200);
     expect(scanRes.body.data.attendanceStatus).toBe("attended");
     expect(scanRes.body.data.alreadyAttended).toBe(false);
+
+    const attendedEventTicketsRes = await request(app)
+      .get(`/api/v1/ticket/event-ticket/${eventId}/hadir`)
+      .set("Authorization", `Bearer ${buyerToken}`);
+
+    expect(attendedEventTicketsRes.statusCode).toBe(200);
+    expect(attendedEventTicketsRes.body.data).toHaveLength(1);
+    expect(attendedEventTicketsRes.body.data[0].attendanceStatus).toBe("attended");
+
+    const omittedStatusEventTicketsRes = await request(app)
+      .get(`/api/v1/ticket/event-ticket/${eventId}`)
+      .set("Authorization", `Bearer ${buyerToken}`);
+
+    expect(omittedStatusEventTicketsRes.statusCode).toBe(200);
+    expect(omittedStatusEventTicketsRes.body.data).toHaveLength(1);
 
     const duplicateScanRes = await request(app)
       .post(`/api/v1/ticket/qr-code/${qrCode}/scan`)

@@ -161,6 +161,71 @@ async function getMyTickets(userId) {
   return attachTransactionItems(rows.map(mapTicketRow));
 }
 
+function normalizeAttendanceStatus(status) {
+  if (!status || status === "all" || status === "null" || status === "undefined") {
+    return null;
+  }
+
+  if (status === "attended" || status === "hadir") {
+    return "attended";
+  }
+
+  if (
+    status === "not_attended" ||
+    status === "not-attended" ||
+    status === "tidak_hadir" ||
+    status === "tidak-hadir" ||
+    status === "belum_hadir" ||
+    status === "belum-hadir"
+  ) {
+    return "not_attended";
+  }
+
+  throw new ApiError(400, "Invalid attendance status");
+}
+
+function canAccessEventTickets(event, user) {
+  return user.role === "admin" || event.created_by === user.id;
+}
+
+async function getEventTickets(eventId, status, user) {
+  const eventRows = await query("SELECT id, created_by FROM events WHERE id = ? LIMIT 1", [eventId]);
+  const event = eventRows[0];
+  if (!event) {
+    throw new ApiError(404, "Event not found");
+  }
+
+  if (!canAccessEventTickets(event, user)) {
+    throw new ApiError(403, "You are not allowed to view tickets for this event");
+  }
+
+  const attendanceStatus = normalizeAttendanceStatus(status);
+  const clauses = ["ep.event_id = ?"];
+  const values = [eventId];
+
+  if (attendanceStatus) {
+    clauses.push("ep.attendance_status = ?");
+    values.push(attendanceStatus);
+  }
+
+  const rows = await query(
+    `SELECT
+      ${ticketSelect}
+    FROM ticket ep
+    JOIN users u ON u.id = ep.user_id
+    JOIN events e ON e.id = ep.event_id
+    JOIN categories c ON c.id = e.category_id
+    JOIN cities ci ON ci.id = e.city_id
+    JOIN organizers o ON o.id = e.organizer_id
+    JOIN transactions t ON t.id = ep.transaction_id
+    WHERE ${clauses.join(" AND ")}
+    ORDER BY ep.created_at DESC`,
+    values
+  );
+
+  return attachTransactionItems(rows.map(mapTicketRow));
+}
+
 async function getByQrCode(qrCode) {
   const rows = await query(
     `SELECT
@@ -231,6 +296,7 @@ async function scanQrCode(qrCode, user) {
 
 export default {
   getMyTickets,
+  getEventTickets,
   getByQrCode,
   scanQrCode
 };

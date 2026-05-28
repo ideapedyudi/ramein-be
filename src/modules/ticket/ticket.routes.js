@@ -8,6 +8,12 @@ const router = express.Router();
 
 router.get("/", authenticate, controller.getMyTickets);
 router.get("/me", authenticate, controller.getMyTickets);
+router.get(
+  "/event-ticket/:eventId/:status?",
+  authenticate,
+  [param("eventId").isUUID(), validateRequest],
+  controller.getEventTickets
+);
 
 router.post(
   "/qr-code/scan",
