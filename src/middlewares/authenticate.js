@@ -3,13 +3,19 @@ import env from "../config/env.js";
 import ApiError from "../utils/apiError.js";
 import { query } from "../db/mysql.js";
 
+function getBearerToken(req) {
+  const authHeader = req.get("authorization");
+  if (!authHeader) return null;
+
+  const match = authHeader.trim().match(/^Bearer\s+(.+)$/i);
+  return match?.[1]?.trim() || null;
+}
+
 async function authenticate(req, res, next) {
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+  const token = getBearerToken(req);
+  if (!token) {
     return next(new ApiError(401, "Unauthorized"));
   }
-
-  const token = authHeader.split(" ")[1];
 
   try {
     const payload = jwt.verify(token, env.jwtAccessSecret);

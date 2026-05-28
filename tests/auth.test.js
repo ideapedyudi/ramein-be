@@ -76,4 +76,24 @@ describe("Auth API", () => {
     expect(response.body.data.accessToken).toBeDefined();
     expect(response.body.data.refreshToken).toBeDefined();
   });
+
+  test("should access purchased events with bearer access token", async () => {
+    await request(app).post("/api/v1/auth/register").send({
+      name: "Purchased User",
+      email: "purchased-user@test.com",
+      password: "password123"
+    });
+
+    const loginRes = await request(app).post("/api/v1/auth/login").send({
+      email: "purchased-user@test.com",
+      password: "password123"
+    });
+
+    const response = await request(app)
+      .get("/api/v1/event-me/me/purchased")
+      .set("Authorization", `bearer   ${loginRes.body.data.accessToken}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data).toEqual([]);
+  });
 });

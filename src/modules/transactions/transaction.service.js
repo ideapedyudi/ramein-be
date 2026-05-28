@@ -186,6 +186,113 @@ async function getMyTransactions(userId) {
   return attachItems(txs);
 }
 
+async function getMyPurchasedEvents(userId) {
+  const rows = await query(
+    `SELECT
+      t.id AS transaction_id,
+      t.order_id,
+      t.gross_amount,
+      t.status AS transaction_status,
+      t.paid_at,
+      t.created_at AS transaction_created_at,
+      e.id AS event_id,
+      e.title AS event_title,
+      e.description AS event_description,
+      e.banner AS event_banner,
+      e.start_datetime AS event_start_datetime,
+      e.end_datetime AS event_end_datetime,
+      e.visibility AS event_visibility,
+      e.status AS event_status,
+      c.id AS category_id,
+      c.name AS category_name,
+      ci.id AS city_id,
+      ci.name AS city_name,
+      o.id AS organizer_id,
+      o.name AS organizer_name
+    FROM transactions t
+    JOIN events e ON e.id = t.event_id
+    JOIN categories c ON c.id = e.category_id
+    JOIN cities ci ON ci.id = e.city_id
+    JOIN organizers o ON o.id = e.organizer_id
+    WHERE t.user_id = ? AND t.status = 'paid'
+    ORDER BY t.paid_at DESC, t.created_at DESC`,
+    [userId]
+  );
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const transactionIds = rows.map((row) => row.transaction_id);
+  const placeholders = transactionIds.map(() => "?").join(", ");
+  const itemRows = await query(
+    `SELECT transaction_id, quantity FROM transaction_items WHERE transaction_id IN (${placeholders})`,
+    transactionIds
+  );
+
+  const ticketCountByTransactionId = new Map();
+  for (const row of itemRows) {
+    const currentTotal = ticketCountByTransactionId.get(row.transaction_id) || 0;
+    ticketCountByTransactionId.set(row.transaction_id, currentTotal + Number(row.quantity));
+  }
+
+  const purchasedEventMap = new Map();
+
+  for (const row of rows) {
+    const existing = purchasedEventMap.get(row.event_id);
+    const totalTickets = ticketCountByTransactionId.get(row.transaction_id) || 0;
+
+    if (!existing) {
+      purchasedEventMap.set(row.event_id, {
+        event: {
+          id: row.event_id,
+          title: row.event_title,
+          description: row.event_description,
+          banner: row.event_banner,
+          startDateTime: row.event_start_datetime,
+          endDateTime: row.event_end_datetime,
+          visibility: row.event_visibility,
+          status: row.event_status,
+          category: {
+            id: row.category_id,
+            name: row.category_name
+          },
+          city: {
+            id: row.city_id,
+            name: row.city_name
+          },
+          organizer: {
+            id: row.organizer_id,
+            name: row.organizer_name
+          }
+        },
+        purchaseSummary: {
+          transactionCount: 1,
+          totalTickets,
+          totalSpent: Number(row.gross_amount),
+          latestPaidAt: row.paid_at,
+          latestTransactionAt: row.transaction_created_at
+        },
+        latestTransaction: {
+          id: row.transaction_id,
+          orderId: row.order_id,
+          grossAmount: Number(row.gross_amount),
+          status: row.transaction_status,
+          paidAt: row.paid_at,
+          createdAt: row.transaction_created_at
+        }
+      });
+      continue;
+    }
+
+    existing.purchaseSummary.transactionCount += 1;
+    existing.purchaseSummary.totalTickets += totalTickets;
+    existing.purchaseSummary.totalSpent += Number(row.gross_amount);
+  }
+
+  return Array.from(purchasedEventMap.values());
+}
+
 async function getAllTransactions(filter = {}) {
   const clauses = [];
   const values = [];
@@ -292,6 +399,7 @@ async function handleMidtransNotification(payload) {
 export default {
   createTransaction,
   getMyTransactions,
+  getMyPurchasedEvents,
   getAllTransactions,
   handleMidtransNotification
 };

@@ -40,16 +40,13 @@ function assertSafeDbReset({ databaseName, nodeEnv, purpose }) {
     return;
   }
 
-  const resetConfirm = normalizeDatabaseName(process.env.DB_RESET_CONFIRM);
-  const explicitConfirm = resetConfirm === "yes" || resetConfirm === "true";
-
-  if (!isSafeResetDatabase(normalizedDatabaseName) && !explicitConfirm) {
+  if (!isSafeResetDatabase(normalizedDatabaseName)) {
     throw new Error(
-      `[${purpose}] Resetting "${databaseName}" requires DB_RESET_CONFIRM=yes because the database name is not clearly a dev/test database.`
+      `[${purpose}] Refusing to reset database "${databaseName}". Only databases ending with "_dev" or "_test" may be reset by repo scripts.`
     );
   }
 
-  if (normalizedNodeEnv === "production" && !explicitConfirm) {
+  if (normalizedNodeEnv === "production") {
     throw new Error(`[${purpose}] Refusing to reset database while NODE_ENV=production.`);
   }
 }

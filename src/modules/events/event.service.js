@@ -168,6 +168,17 @@ async function listEvents(queryParams) {
   });
 }
 
+async function listMyEvents(queryParams, user) {
+  const { clauses, values } = buildEventWhere(queryParams);
+  clauses.push("e.created_by = ?");
+  values.push(user.id);
+  return fetchEvents({
+    whereClauses: clauses,
+    values,
+    orderBy: "e.start_datetime ASC"
+  });
+}
+
 async function getEventById(id) {
   const rows = await fetchEvents({
     whereClauses: ["e.id = ?"],
@@ -181,10 +192,92 @@ async function getEventById(id) {
 
 async function listTrendingEvents() {
   return fetchEvents({
-    whereClauses: [],
+    whereClauses: ["e.visibility = 'public'"],
     orderBy: "e.created_at DESC, e.id DESC",
     limit: 8
   });
+}
+
+async function listPurchasedEvents(userId) {
+  const rows = await query(
+    `SELECT
+      t.id AS transaction_id,
+      t.order_id,
+      t.gross_amount,
+      t.status AS transaction_status,
+      t.paid_at,
+      t.created_at AS transaction_created_at,
+      e.*,
+      c.name AS category_name,
+      ci.name AS city_name,
+      o.name AS organizer_name,
+      o.contact_name AS organizer_contact_name,
+      o.contact_email AS organizer_contact_email,
+      o.contact_phone AS organizer_contact_phone,
+      u.name AS creator_name,
+      u.email AS creator_email
+    FROM transactions t
+    JOIN events e ON e.id = t.event_id
+    JOIN categories c ON c.id = e.category_id
+    JOIN cities ci ON ci.id = e.city_id
+    JOIN organizers o ON o.id = e.organizer_id
+    JOIN users u ON u.id = e.created_by
+    WHERE t.user_id = ? AND t.status = 'paid'
+    ORDER BY t.paid_at DESC, t.created_at DESC`,
+    [userId]
+  );
+
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const transactionIds = rows.map((row) => row.transaction_id);
+  const placeholders = transactionIds.map(() => "?").join(", ");
+  const itemRows = await query(
+    `SELECT transaction_id, quantity FROM transaction_items WHERE transaction_id IN (${placeholders})`,
+    transactionIds
+  );
+
+  const ticketCountByTransactionId = new Map();
+  for (const row of itemRows) {
+    const currentTotal = ticketCountByTransactionId.get(row.transaction_id) || 0;
+    ticketCountByTransactionId.set(row.transaction_id, currentTotal + Number(row.quantity));
+  }
+
+  const purchasedEventMap = new Map();
+
+  for (const row of rows) {
+    const existing = purchasedEventMap.get(row.event_id);
+    const totalTickets = ticketCountByTransactionId.get(row.transaction_id) || 0;
+
+    if (!existing) {
+      purchasedEventMap.set(row.event_id, {
+        event: normalizeEventRow(row),
+        purchaseSummary: {
+          transactionCount: 1,
+          totalTickets,
+          totalSpent: Number(row.gross_amount),
+          latestPaidAt: row.paid_at,
+          latestTransactionAt: row.transaction_created_at
+        },
+        latestTransaction: {
+          id: row.transaction_id,
+          orderId: row.order_id,
+          grossAmount: Number(row.gross_amount),
+          status: row.transaction_status,
+          paidAt: row.paid_at,
+          createdAt: row.transaction_created_at
+        }
+      });
+      continue;
+    }
+
+    existing.purchaseSummary.transactionCount += 1;
+    existing.purchaseSummary.totalTickets += totalTickets;
+    existing.purchaseSummary.totalSpent += Number(row.gross_amount);
+  }
+
+  return Array.from(purchasedEventMap.values());
 }
 
 async function getCategoryIdByName(categoryName) {
@@ -423,6 +516,8 @@ async function publishEvent(id, user) {
 
 export default {
   listEvents,
+  listMyEvents,
+  listPurchasedEvents,
   getEventById,
   listTrendingEvents,
   listRecommendedEvents,

@@ -2,6 +2,7 @@ import express from "express";
 import authRoutes from "../modules/auth/auth.routes.js";
 import userRoutes from "../modules/users/user.routes.js";
 import masterDataRoutes from "../modules/master-data/masterData.routes.js";
+import eventMeRoutes from "../modules/event-me/eventMe.routes.js";
 import eventRoutes from "../modules/events/event.routes.js";
 import transactionRoutes from "../modules/transactions/transaction.routes.js";
 import paymentRoutes from "../modules/payments/payment.routes.js";
@@ -18,6 +19,7 @@ router.get("/health", (req, res) => {
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/master", masterDataRoutes);
+router.use("/event-me", eventMeRoutes);
 router.use("/events", eventRoutes);
 router.use("/transactions", transactionRoutes);
 router.use("/payments", paymentRoutes);

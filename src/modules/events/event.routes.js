@@ -1,5 +1,5 @@
 import express from "express";
-import { body  } from "express-validator";
+import { body, query as queryValidator } from "express-validator";
 import authenticate from "../../middlewares/authenticate.js";
 import authorize from "../../middlewares/authorize.js";
 import validateRequest from "../../middlewares/validateRequest.js";
@@ -8,6 +8,12 @@ import controller from "./event.controller.js";
 const router = express.Router();
 
 router.get("/", controller.listEvents);
+router.get(
+  "/me/purchased",
+  [queryValidator("userId").isUUID(), validateRequest],
+  controller.listPurchasedEvents
+);
+router.get("/me", authenticate, controller.listMyEvents);
 router.get("/trending", controller.trendingEvents);
 router.get("/recommended", controller.recommendedEvents);
 router.get("/:id", controller.getEvent);

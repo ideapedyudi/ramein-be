@@ -221,6 +221,125 @@ describe("Event API", () => {
     expect(response.body.data.visibility).toBe("public");
   });
 
+  test("get my events only returns events created by logged in user", async () => {
+    await createUser({
+      name: "List Owner A",
+      email: "list-owner-a@test.com",
+      password: "password123",
+      role: "user"
+    });
+    await createUser({
+      name: "List Owner B",
+      email: "list-owner-b@test.com",
+      password: "password123",
+      role: "user"
+    });
+
+    const ownerAToken = await login("list-owner-a@test.com", "password123");
+    const ownerBToken = await login("list-owner-b@test.com", "password123");
+
+    const categoryId = await createCategory("Private Listing");
+    const organizerId = await createOrganizer({ name: "Listing Organizer" });
+    const cityId = await createCity("Bogor");
+
+    await request(app)
+      .post("/api/v1/events")
+      .set("Authorization", `Bearer ${ownerAToken}`)
+      .send({
+        title: "Owner A Event",
+        description: "Owned by A",
+        categoryId,
+        organizerId,
+        cityId,
+        addressDetail: "Venue A",
+        startDateTime: "2030-07-10T19:00:00.000Z",
+        endDateTime: "2030-07-10T22:00:00.000Z",
+        ticketTypes: [
+          {
+            name: "Regular",
+            price: 50000,
+            quota: 20,
+            saleStartAt: "2030-01-01T00:00:00.000Z",
+            saleEndAt: "2030-07-10T18:00:00.000Z"
+          }
+        ]
+      });
+
+    await request(app)
+      .post("/api/v1/events")
+      .set("Authorization", `Bearer ${ownerBToken}`)
+      .send({
+        title: "Owner B Event",
+        description: "Owned by B",
+        categoryId,
+        organizerId,
+        cityId,
+        addressDetail: "Venue B",
+        startDateTime: "2030-08-10T19:00:00.000Z",
+        endDateTime: "2030-08-10T22:00:00.000Z",
+        ticketTypes: [
+          {
+            name: "Regular",
+            price: 75000,
+            quota: 25,
+            saleStartAt: "2030-01-01T00:00:00.000Z",
+            saleEndAt: "2030-08-10T18:00:00.000Z"
+          }
+        ]
+      });
+
+    const response = await request(app)
+      .get("/api/v1/events/me")
+      .set("Authorization", `Bearer ${ownerAToken}`);
+
+    expect(response.statusCode).toBe(200);
+    expect(response.body.data).toHaveLength(1);
+    expect(response.body.data[0].title).toBe("Owner A Event");
+    expect(response.body.data[0].createdBy).toBeDefined();
+  });
+
+  test("public get events does not require login", async () => {
+    const categoryId = await createCategory("Public Event List");
+    const organizerId = await createOrganizer({ name: "Public Organizer" });
+    const cityId = await createCity("Bekasi");
+
+    await createUser({
+      name: "Public Admin",
+      email: "public.admin@test.com",
+      password: "password123",
+      role: "admin"
+    });
+    const adminToken = await login("public.admin@test.com", "password123");
+
+    await request(app)
+      .post("/api/v1/events")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({
+        title: "Public List Event",
+        description: "Visible from public list",
+        categoryId,
+        organizerId,
+        cityId,
+        addressDetail: "Public venue",
+        startDateTime: "2030-09-10T19:00:00.000Z",
+        endDateTime: "2030-09-10T22:00:00.000Z",
+        ticketTypes: [
+          {
+            name: "Regular",
+            price: 50000,
+            quota: 20,
+            saleStartAt: "2030-01-01T00:00:00.000Z",
+            saleEndAt: "2030-09-10T18:00:00.000Z"
+          }
+        ]
+      });
+
+    const response = await request(app).get("/api/v1/events");
+
+    expect(response.statusCode).toBe(200);
+    expect(Array.isArray(response.body.data)).toBe(true);
+  });
+
   test("can get trending and recommended event lists", async () => {
     await createUser({
       name: "Event Curator",
@@ -229,6 +348,13 @@ describe("Event API", () => {
       role: "admin"
     });
     const token = await login("curator@test.com", "password123");
+    await createUser({
+      name: "Private Owner",
+      email: "private-owner@test.com",
+      password: "password123",
+      role: "user"
+    });
+    const privateOwnerToken = await login("private-owner@test.com", "password123");
 
     const konserCategoryId = await createCategory("Konser");
     const seminarCategoryId = await createCategory("Seminar");
@@ -280,11 +406,36 @@ describe("Event API", () => {
       await wait(1100);
     }
 
+    await request(app)
+      .post("/api/v1/events")
+      .set("Authorization", `Bearer ${privateOwnerToken}`)
+      .send({
+        title: "Private Newest Event",
+        description: "Should not appear in trending",
+        categoryId: konserCategoryId,
+        organizerId,
+        cityId,
+        addressDetail: "Private venue",
+        startDateTime: "2030-07-10T19:00:00.000Z",
+        endDateTime: "2030-07-10T22:00:00.000Z",
+        ticketTypes: [
+          {
+            name: "Regular",
+            price: 100000,
+            quota: 50,
+            saleStartAt: "2030-01-01T00:00:00.000Z",
+            saleEndAt: "2030-07-10T18:00:00.000Z"
+          }
+        ]
+      });
+
     const trendingRes = await request(app).get("/api/v1/events/trending");
     expect(trendingRes.statusCode).toBe(200);
     expect(trendingRes.body.data).toHaveLength(8);
     expect(trendingRes.body.data[0].title).toBe("Konser 5");
     expect(trendingRes.body.data[7].title).toBe("Konser 1");
+    expect(trendingRes.body.data.some((event) => event.title === "Private Newest Event")).toBe(false);
+    expect(trendingRes.body.data.every((event) => event.visibility === "public")).toBe(true);
 
     const recommendedRes = await request(app).get("/api/v1/events/recommended");
     expect(recommendedRes.statusCode).toBe(200);

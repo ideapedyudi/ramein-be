@@ -28,7 +28,7 @@ cp .env.example .env
 npm run db:init
 ```
 Perintah ini akan me-reset tabel aplikasi lalu membuat ulang schema terbaru.
-Kalau nama database bukan database dev/test yang jelas, set `DB_RESET_CONFIRM=yes` dulu sebelum menjalankan command ini.
+Script ini sekarang hanya boleh dijalankan untuk database dengan nama berakhiran `_dev` atau `_test`.
 
 4. Jalankan server
 ```bash
@@ -58,6 +58,7 @@ Bootstrap test akan menolak reset kalau `MYSQL_DATABASE` tidak berakhiran `_test
 - Master data: `/master/categories`, `/master/cities`, `/master/organizers`
 - Event: `/events`, `/events/trending`, `/events/recommended`, `/events/:id`, `/events/:id/publish`
 
+Semua endpoint `/events` memerlukan token login.
 `/events/trending` menampilkan 8 event terbaru yang baru dibuat.
 `/events/recommended` default ke kategori `Konser` jika tidak ada parameter minat/category yang dikirim.
 - Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`
