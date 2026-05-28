@@ -19,9 +19,9 @@ router.get("/health", (req, res) => {
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/master", masterDataRoutes);
-router.use("/event-me", eventMeRoutes);
 router.use("/events", eventRoutes);
 router.use("/transactions", transactionRoutes);
 router.use("/payments", paymentRoutes);
+router.use("/event-me", eventMeRoutes);
 
 export default router;
