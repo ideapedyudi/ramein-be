@@ -132,6 +132,27 @@ CREATE TABLE IF NOT EXISTS transaction_items (
   CONSTRAINT fk_transaction_items_ticket FOREIGN KEY (ticket_type_id) REFERENCES event_ticket_types (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS event_paid (
+  id CHAR(36) NOT NULL,
+  user_id CHAR(36) NOT NULL,
+  event_id CHAR(36) NOT NULL,
+  transaction_id CHAR(36) NOT NULL,
+  qr_code VARCHAR(120) NOT NULL,
+  attendance_status ENUM('not_attended','attended') NOT NULL DEFAULT 'not_attended',
+  attended_at DATETIME NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_event_paid_transaction_id (transaction_id),
+  UNIQUE KEY uq_event_paid_qr_code (qr_code),
+  KEY idx_event_paid_user_id (user_id),
+  KEY idx_event_paid_event_id (event_id),
+  KEY idx_event_paid_attendance_status (attendance_status),
+  CONSTRAINT fk_event_paid_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT fk_event_paid_event FOREIGN KEY (event_id) REFERENCES events (id),
+  CONSTRAINT fk_event_paid_transaction FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS payment_logs (
   id CHAR(36) NOT NULL,
   order_id VARCHAR(120) NOT NULL,

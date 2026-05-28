@@ -124,5 +124,61 @@ describe("Transaction API", () => {
 
     const updatedTickets = await getEventTickets(eventId);
     expect(Number(updatedTickets[0].sold)).toBe(2);
+
+    const eventPaidListRes = await request(app)
+      .get("/api/v1/event-paid/me")
+      .set("Authorization", `Bearer ${buyerToken}`);
+
+    expect(eventPaidListRes.statusCode).toBe(200);
+    expect(eventPaidListRes.body.data).toHaveLength(1);
+    expect(eventPaidListRes.body.data[0].eventId).toBe(eventId);
+    expect(eventPaidListRes.body.data[0].transactionId).toBe(createTxRes.body.data.id);
+    expect(eventPaidListRes.body.data[0].qrCode).toBeDefined();
+    expect(eventPaidListRes.body.data[0].attendanceStatus).toBe("not_attended");
+    expect(eventPaidListRes.body.data[0].event).toMatchObject({
+      id: eventId,
+      title: "Live Show",
+      description: "Live show test",
+      paymentType: "paid",
+      status: "published"
+    });
+    expect(eventPaidListRes.body.data[0].event.category.name).toBe("Festival");
+    expect(eventPaidListRes.body.data[0].event.city.name).toBe("Yogyakarta");
+    expect(eventPaidListRes.body.data[0].event.organizer.name).toBe("Promotor Tx");
+    expect(eventPaidListRes.body.data[0].transaction).toMatchObject({
+      id: createTxRes.body.data.id,
+      orderId,
+      grossAmount,
+      status: "paid",
+      paymentProvider: "midtrans"
+    });
+    expect(eventPaidListRes.body.data[0].transaction.items).toEqual([
+      {
+        ticketTypeId,
+        ticketName: "Regular",
+        unitPrice: 120000,
+        quantity: 2,
+        subtotal: 240000
+      }
+    ]);
+
+    const qrCode = eventPaidListRes.body.data[0].qrCode;
+    const scanRes = await request(app)
+      .post("/api/v1/event-paid/qr-code/scan")
+      .set("Authorization", `Bearer ${buyerToken}`)
+      .send({ qrCode });
+
+    expect(scanRes.statusCode).toBe(200);
+    expect(scanRes.body.data.attendanceStatus).toBe("attended");
+    expect(scanRes.body.data.alreadyAttended).toBe(false);
+
+    const duplicateScanRes = await request(app)
+      .post(`/api/v1/event-paid/qr-code/${qrCode}/scan`)
+      .set("Authorization", `Bearer ${buyerToken}`)
+      .send();
+
+    expect(duplicateScanRes.statusCode).toBe(200);
+    expect(duplicateScanRes.body.data.attendanceStatus).toBe("attended");
+    expect(duplicateScanRes.body.data.alreadyAttended).toBe(true);
   });
 });

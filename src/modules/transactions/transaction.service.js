@@ -8,6 +8,10 @@ function generateOrderId() {
   return `ORD-${Date.now()}-${random}`;
 }
 
+function generateQrCode() {
+  return `EVP-${generateId()}`;
+}
+
 function mapTransactionRow(row) {
   return {
     id: row.id,
@@ -23,6 +27,19 @@ function mapTransactionRow(row) {
     paidAt: row.paid_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at
+  };
+}
+
+function mapEventPaidRow(row) {
+  if (!row.event_paid_id) return null;
+
+  return {
+    id: row.event_paid_id,
+    qrCode: row.qr_code,
+    attendanceStatus: row.attendance_status,
+    attendedAt: row.attended_at,
+    createdAt: row.event_paid_created_at,
+    updatedAt: row.event_paid_updated_at
   };
 }
 
@@ -195,6 +212,12 @@ async function getMyPurchasedEvents(userId) {
       t.status AS transaction_status,
       t.paid_at,
       t.created_at AS transaction_created_at,
+      ep.id AS event_paid_id,
+      ep.qr_code,
+      ep.attendance_status,
+      ep.attended_at,
+      ep.created_at AS event_paid_created_at,
+      ep.updated_at AS event_paid_updated_at,
       e.id AS event_id,
       e.title AS event_title,
       e.description AS event_description,
@@ -214,6 +237,7 @@ async function getMyPurchasedEvents(userId) {
     JOIN categories c ON c.id = e.category_id
     JOIN cities ci ON ci.id = e.city_id
     JOIN organizers o ON o.id = e.organizer_id
+    LEFT JOIN event_paid ep ON ep.transaction_id = t.id
     WHERE t.user_id = ? AND t.status = 'paid'
     ORDER BY t.paid_at DESC, t.created_at DESC`,
     [userId]
@@ -279,7 +303,8 @@ async function getMyPurchasedEvents(userId) {
           grossAmount: Number(row.gross_amount),
           status: row.transaction_status,
           paidAt: row.paid_at,
-          createdAt: row.transaction_created_at
+          createdAt: row.transaction_created_at,
+          eventPaid: mapEventPaidRow(row)
         }
       });
       continue;
@@ -390,6 +415,21 @@ async function handleMidtransNotification(payload) {
           [Number(item.quantity), item.ticket_type_id]
         );
       }
+    }
+
+    if (mappedStatus === "paid") {
+      await connection.execute(
+        `INSERT INTO event_paid (
+          id,
+          user_id,
+          event_id,
+          transaction_id,
+          qr_code,
+          attendance_status
+        ) VALUES (?, ?, ?, ?, ?, 'not_attended')
+        ON DUPLICATE KEY UPDATE updated_at = updated_at`,
+        [generateId(), tx.user_id, tx.event_id, tx.id, generateQrCode()]
+      );
     }
 
     return { duplicated: false, status: mappedStatus };
