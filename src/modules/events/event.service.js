@@ -7,35 +7,24 @@ function normalizeEventRow(row) {
     id: row.id,
     title: row.title,
     description: row.description,
-    categoryId: row.category_id,
-    organizerId: row.organizer_id,
-    createdBy: row.created_by,
-    cityId: row.city_id,
-    addressDetail: row.address_detail,
+    category_id: row.category_id,
+    organizer_id: row.organizer_id,
+    created_by: row.created_by,
+    city_id: row.city_id,
+    address_detail: row.address_detail,
     banner: row.banner,
-    eventType: row.event_type,
     event_type: row.event_type,
-    labelOnline: row.label_online,
     label_online: row.label_online,
-    urlOnline: row.url_online,
     url_online: row.url_online,
-    paymentType: row.payment_type,
     payment_type: row.payment_type,
     visibility: row.visibility,
-    startDateTime: row.start_datetime,
     start_datetime: row.start_datetime,
-    endDateTime: row.end_datetime,
     end_datetime: row.end_datetime,
     status: row.status,
-    isPublished: Boolean(row.is_published),
     is_published: Boolean(row.is_published),
-    isWithdraw: Boolean(row.is_withdraw),
     is_withdraw: Boolean(row.is_withdraw),
-    publishedBy: row.published_by,
     published_by: row.published_by,
-    createdAt: row.created_at,
     created_at: row.created_at,
-    updatedAt: row.updated_at,
     updated_at: row.updated_at,
     category: {
       id: row.category_id,
@@ -43,14 +32,15 @@ function normalizeEventRow(row) {
     },
     city: {
       id: row.city_id,
-      name: row.city_name
+      name: row.city_name,
+      provinsi: row.city_provinsi
     },
     organizer: {
       id: row.organizer_id,
       name: row.organizer_name,
-      contactName: row.organizer_contact_name,
-      contactEmail: row.organizer_contact_email,
-      contactPhone: row.organizer_contact_phone
+      contact_name: row.organizer_contact_name,
+      contact_email: row.organizer_contact_email,
+      contact_phone: row.organizer_contact_phone
     },
     creator: {
       id: row.created_by,
@@ -65,18 +55,47 @@ function getPayloadValue(payload, camelKey, snakeKey) {
   return payload[snakeKey];
 }
 
+function getFirstQueryValue(queryParams, keys) {
+  for (const key of keys) {
+    const value = queryParams[key];
+    if (Array.isArray(value) && value.length > 0) return value[0];
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return null;
+}
+
+function getQueryList(queryParams, keys) {
+  const values = [];
+
+  for (const key of keys) {
+    const value = queryParams[key];
+    if (Array.isArray(value)) {
+      values.push(...value);
+      continue;
+    }
+    if (value !== undefined && value !== null && value !== "") {
+      values.push(value);
+    }
+  }
+
+  return values
+    .flatMap((value) => String(value).split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+}
+
 function normalizeTicketRow(row) {
   return {
     id: row.id,
-    eventId: row.event_id,
+    event_id: row.event_id,
     name: row.name,
     price: Number(row.price),
     quota: Number(row.quota),
     sold: Number(row.sold),
-    saleStartAt: row.sale_start_at,
-    saleEndAt: row.sale_end_at,
-    createdAt: row.created_at,
-    updatedAt: row.updated_at
+    sale_start_at: row.sale_start_at,
+    sale_end_at: row.sale_end_at,
+    created_at: row.created_at,
+    updated_at: row.updated_at
   };
 }
 
@@ -93,14 +112,14 @@ async function attachTicketTypes(events) {
   const ticketMap = new Map();
   for (const ticket of ticketRows) {
     const normalized = normalizeTicketRow(ticket);
-    const list = ticketMap.get(normalized.eventId) || [];
+    const list = ticketMap.get(normalized.event_id) || [];
     list.push(normalized);
-    ticketMap.set(normalized.eventId, list);
+    ticketMap.set(normalized.event_id, list);
   }
 
   return events.map((event) => ({
     ...event,
-    ticketTypes: ticketMap.get(event.id) || []
+    ticket_types: ticketMap.get(event.id) || []
   }));
 }
 
@@ -114,6 +133,7 @@ async function fetchEvents({ whereClauses = [], values = [], orderBy = "e.start_
       e.*,
       c.name AS category_name,
       ci.name AS city_name,
+      ci.provinsi AS city_provinsi,
       o.name AS organizer_name,
       o.contact_name AS organizer_contact_name,
       o.contact_email AS organizer_contact_email,
@@ -216,6 +236,60 @@ async function listTrendingEvents() {
   });
 }
 
+async function listExploreEvents(queryParams = {}) {
+  const clauses = ["e.visibility = 'public'"];
+  const values = [];
+
+  const search = getFirstQueryValue(queryParams, ["search", "q"]);
+  if (search) {
+    clauses.push("(e.title LIKE ? OR e.description LIKE ?)");
+    const like = `%${search}%`;
+    values.push(like, like);
+  }
+
+  const category = getFirstQueryValue(queryParams, ["category", "kategory", "categoryName", "category_name"]);
+  if (category) {
+    clauses.push("LOWER(c.name) = LOWER(?)");
+    values.push(category);
+  }
+
+  const categoryId = getFirstQueryValue(queryParams, ["categoryId", "category_id"]);
+  if (categoryId) {
+    clauses.push("e.category_id = ?");
+    values.push(categoryId);
+  }
+
+  const wilayah = getFirstQueryValue(queryParams, ["wilayah", "provinsi", "province", "region"]);
+  if (wilayah) {
+    clauses.push("ci.provinsi LIKE ?");
+    values.push(`%${wilayah}%`);
+  }
+
+  const kota = getFirstQueryValue(queryParams, ["kota", "city", "cityName", "city_name"]);
+  if (kota) {
+    clauses.push("ci.name LIKE ?");
+    values.push(`%${kota}%`);
+  }
+
+  const cityId = getFirstQueryValue(queryParams, ["cityId", "city_id"]);
+  if (cityId) {
+    clauses.push("e.city_id = ?");
+    values.push(cityId);
+  }
+
+  const eventDate = getFirstQueryValue(queryParams, ["date", "eventDate", "event_date", "startDate", "start_date"]);
+  if (eventDate) {
+    clauses.push("DATE(e.start_datetime) = ?");
+    values.push(eventDate);
+  }
+
+  return fetchEvents({
+    whereClauses: clauses,
+    values,
+    orderBy: "e.start_datetime ASC"
+  });
+}
+
 async function listPurchasedEvents(userId) {
   const rows = await query(
     `SELECT
@@ -229,6 +303,7 @@ async function listPurchasedEvents(userId) {
       e.*,
       c.name AS category_name,
       ci.name AS city_name,
+      ci.provinsi AS city_provinsi,
       o.name AS organizer_name,
       o.contact_name AS organizer_contact_name,
       o.contact_email AS organizer_contact_email,
@@ -272,29 +347,29 @@ async function listPurchasedEvents(userId) {
     if (!existing) {
       purchasedEventMap.set(row.event_id, {
         event: normalizeEventRow(row),
-        purchaseSummary: {
-          transactionCount: 1,
-          totalTickets,
-          totalSpent: Number(row.gross_amount),
-          latestPaidAt: row.paid_at,
-          latestTransactionAt: row.transaction_created_at
+        purchase_summary: {
+          transaction_count: 1,
+          total_tickets: totalTickets,
+          total_spent: Number(row.gross_amount),
+          latest_paid_at: row.paid_at,
+          latest_transaction_at: row.transaction_created_at
         },
-        latestTransaction: {
+        latest_transaction: {
           id: row.transaction_id,
-          orderId: row.order_id,
-          grossAmount: Number(row.gross_amount),
-          adminIncome: Number(row.admin_income || 0),
+          order_id: row.order_id,
+          gross_amount: Number(row.gross_amount),
+          admin_income: Number(row.admin_income || 0),
           status: row.transaction_status,
-          paidAt: row.paid_at,
-          createdAt: row.transaction_created_at
+          paid_at: row.paid_at,
+          created_at: row.transaction_created_at
         }
       });
       continue;
     }
 
-    existing.purchaseSummary.transactionCount += 1;
-    existing.purchaseSummary.totalTickets += totalTickets;
-    existing.purchaseSummary.totalSpent += Number(row.gross_amount);
+    existing.purchase_summary.transaction_count += 1;
+    existing.purchase_summary.total_tickets += totalTickets;
+    existing.purchase_summary.total_spent += Number(row.gross_amount);
   }
 
   return Array.from(purchasedEventMap.values());
@@ -322,6 +397,21 @@ async function listRecommendedEvents(queryParams = {}) {
     values: [categoryId],
     orderBy: "e.created_at DESC",
     limit: 5
+  });
+}
+
+async function listInterestEvents(queryParams = {}) {
+  const categories = getQueryList(queryParams, ["categories", "category", "kategory", "interest", "interests"]);
+
+  if (categories.length === 0) {
+    return [];
+  }
+
+  const placeholders = categories.map(() => "?").join(", ");
+  return fetchEvents({
+    whereClauses: ["e.visibility = 'public'", `LOWER(c.name) IN (${placeholders})`],
+    values: categories.map((category) => category.toLowerCase()),
+    orderBy: "e.created_at DESC"
   });
 }
 
@@ -416,7 +506,7 @@ async function createEvent(payload, user) {
 }
 
 function canManageEvent(event, user) {
-  return user.role === "admin" || event.createdBy === user.id;
+  return user.role === "admin" || event.created_by === user.id;
 }
 
 function buildEventUpdate(payload, user) {
@@ -526,7 +616,9 @@ export default {
   listPurchasedEvents,
   getEventById,
   listTrendingEvents,
+  listExploreEvents,
   listRecommendedEvents,
+  listInterestEvents,
   createEvent,
   updateEvent,
   deleteEvent

@@ -22,9 +22,19 @@ const trendingEvents = asyncHandler(async (req, res) => {
   return successResponse(res, 200, "Trending event list", data);
 });
 
+const exploreEvents = asyncHandler(async (req, res) => {
+  const data = await eventService.listExploreEvents(req.query);
+  return successResponse(res, 200, "Explore event list", data);
+});
+
 const recommendedEvents = asyncHandler(async (req, res) => {
   const data = await eventService.listRecommendedEvents(req.query);
   return successResponse(res, 200, "Recommended event list", data);
+});
+
+const interestEvents = asyncHandler(async (req, res) => {
+  const data = await eventService.listInterestEvents(req.query);
+  return successResponse(res, 200, "Interest event list", data);
 });
 
 const getEvent = asyncHandler(async (req, res) => {
@@ -52,7 +62,9 @@ export default {
   listMyEvents,
   listPurchasedEvents,
   trendingEvents,
+  exploreEvents,
   recommendedEvents,
+  interestEvents,
   getEvent,
   createEvent,
   updateEvent,

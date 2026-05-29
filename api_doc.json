@@ -555,7 +555,7 @@
                 "exec": [
                   "const json = pm.response.json();",
                   "if (json?.data?.id) pm.collectionVariables.set('event_id', json.data.id);",
-                  "if (json?.data?.ticketTypes?.[0]?.id) pm.collectionVariables.set('ticket_type_id', json.data.ticketTypes[0].id);"
+                  "if (json?.data?.ticket_types?.[0]?.id) pm.collectionVariables.set('ticket_type_id', json.data.ticket_types[0].id);"
                 ],
                 "type": "text/javascript"
               }
@@ -587,7 +587,7 @@
               ]
             }
           },
-          "description": "Event langsung published saat dibuat. Response berisi isWithdraw/is_withdraw default false."
+          "description": "Event langsung published saat dibuat. Response berisi is_withdraw default false."
         },
         {
           "name": "GET Event List",
@@ -604,6 +604,70 @@
               ]
             }
           }
+        },
+        {
+          "name": "GET Explore Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/events/explore?search=konser&category=Music&wilayah=DKI Jakarta&kota=Jakarta&date=2030-12-20",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "events",
+                "explore"
+              ],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "konser"
+                },
+                {
+                  "key": "category",
+                  "value": "Music"
+                },
+                {
+                  "key": "wilayah",
+                  "value": "DKI Jakarta"
+                },
+                {
+                  "key": "kota",
+                  "value": "Jakarta"
+                },
+                {
+                  "key": "date",
+                  "value": "2030-12-20"
+                }
+              ]
+            }
+          },
+          "description": "Explore event public dengan filter opsional: search/q, category/kategory/categoryId, wilayah/provinsi, kota/city/cityId, date/event_date."
+        },
+        {
+          "name": "GET Interest Events Multi Category",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/events/interest?categories=Music,Workshop",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "events",
+                "interest"
+              ],
+              "query": [
+                {
+                  "key": "categories",
+                  "value": "Music,Workshop"
+                }
+              ]
+            }
+          },
+          "description": "Filter event public berdasarkan multi kategori. Bisa pakai categories=Music,Workshop atau category=Music&category=Workshop."
         },
         {
           "name": "GET Event Detail",

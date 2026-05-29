@@ -15,7 +15,9 @@ router.get(
 );
 router.get("/me", authenticate, controller.listMyEvents);
 router.get("/trending", controller.trendingEvents);
+router.get("/explore", controller.exploreEvents);
 router.get("/recommended", controller.recommendedEvents);
+router.get("/interest", controller.interestEvents);
 router.get("/:id", controller.getEvent);
 
 router.post(

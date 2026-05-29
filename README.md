@@ -43,7 +43,7 @@ npm run dev
 - Auth: `/auth/register`, `/auth/login`, `/auth/refresh-token`, `/auth/logout`
 - User: `/users/me`, `/users/admin/list`
 - Master data: `/master/categories`, `/master/cities`, `/master/organizers`
-- Event: `/events`, `/events/trending`, `/events/recommended`, `/events/:id`
+- Event: `/events`, `/events/explore`, `/events/interest`, `/events/trending`, `/events/recommended`, `/events/:id`
 
 Semua endpoint `/events` memerlukan token login.
 `/events/trending` menampilkan 8 event terbaru yang baru dibuat.
