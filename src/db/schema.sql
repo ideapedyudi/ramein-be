@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS events (
   end_datetime DATETIME NOT NULL,
   status ENUM('draft','pending','published','rejected','completed','cancelled') NOT NULL DEFAULT 'draft',
   is_published TINYINT(1) NOT NULL DEFAULT 0,
+  is_withdraw TINYINT(1) NOT NULL DEFAULT 0,
   published_by ENUM('user','admin') NULL,
   created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -152,6 +153,23 @@ CREATE TABLE IF NOT EXISTS ticket (
   CONSTRAINT fk_ticket_purchase_user FOREIGN KEY (user_id) REFERENCES users (id),
   CONSTRAINT fk_ticket_purchase_event FOREIGN KEY (event_id) REFERENCES events (id),
   CONSTRAINT fk_ticket_purchase_transaction FOREIGN KEY (transaction_id) REFERENCES transactions (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS withdraw (
+  id CHAR(36) NOT NULL,
+  event_id CHAR(36) NOT NULL,
+  user_id CHAR(36) NOT NULL,
+  total_amount DECIMAL(14,2) NOT NULL,
+  status ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  is_approval TINYINT(1) NOT NULL DEFAULT 0,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_withdraw_event_id (event_id),
+  KEY idx_withdraw_user_id (user_id),
+  KEY idx_withdraw_status (status),
+  CONSTRAINT fk_withdraw_event FOREIGN KEY (event_id) REFERENCES events (id),
+  CONSTRAINT fk_withdraw_user FOREIGN KEY (user_id) REFERENCES users (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS payment_logs (

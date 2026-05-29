@@ -29,6 +29,8 @@ function normalizeEventRow(row) {
     status: row.status,
     isPublished: Boolean(row.is_published),
     is_published: Boolean(row.is_published),
+    isWithdraw: Boolean(row.is_withdraw),
+    is_withdraw: Boolean(row.is_withdraw),
     publishedBy: row.published_by,
     published_by: row.published_by,
     createdAt: row.created_at,

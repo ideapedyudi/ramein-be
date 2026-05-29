@@ -49,6 +49,7 @@ Semua endpoint `/events` memerlukan token login.
 `/events/trending` menampilkan 8 event terbaru yang baru dibuat.
 `/events/recommended` default ke kategori `Konser` jika tidak ada parameter minat/category yang dikirim.
 - Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`, `/transactions/statistic/event/:event_id`
+- Withdraw: `/withdraw`, `/withdraw/me`, `/withdraw/all`
 - Payment webhook: `/payments/midtrans/notification`
 
 ## Catatan Midtrans

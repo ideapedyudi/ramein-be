@@ -309,7 +309,7 @@ async function getEventStatistic(eventId, user) {
     LEFT JOIN (
       SELECT
         event_id,
-        SUM(gross_amount) AS revenue
+        SUM(gross_amount - admin_income) AS revenue
       FROM transactions
       WHERE event_id = ? AND status = 'paid'
       GROUP BY event_id
