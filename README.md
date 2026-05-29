@@ -50,6 +50,7 @@ Semua endpoint `/events` memerlukan token login.
 `/events/recommended` default ke kategori `Konser` jika tidak ada parameter minat/category yang dikirim.
 - Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`, `/transactions/statistic/event/:event_id`
 - Withdraw: `/withdraw`, `/withdraw/me`, `/withdraw/all`, `/withdraw/status`
+- Finance: `/finance/:published_by`, `/finance/:published_by/:organizer_id`
 - Payment webhook: `/payments/midtrans/notification`
 
 ## Catatan Midtrans

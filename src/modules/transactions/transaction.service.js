@@ -66,6 +66,64 @@ function calculateAdminIncome(amount) {
   return Math.round(Number(amount) * 0.2 * 100) / 100;
 }
 
+async function insertFinanceRecord(connection, transactionId) {
+  const [financeRows] = await connection.execute(
+    "SELECT id FROM finance WHERE transaksi_id = ? LIMIT 1",
+    [transactionId]
+  );
+
+  if (financeRows.length > 0) {
+    return;
+  }
+
+  const [rows] = await connection.execute(
+    `SELECT
+      t.id AS transaksi_id,
+      t.user_id,
+      t.event_id,
+      t.gross_amount,
+      t.admin_income,
+      t.paid_at,
+      e.organizer_id,
+      e.published_by
+    FROM transactions t
+    JOIN events e ON e.id = t.event_id
+    WHERE t.id = ? AND t.status = 'paid'
+    LIMIT 1`,
+    [transactionId]
+  );
+  const tx = rows[0];
+
+  if (!tx) {
+    return;
+  }
+
+  await connection.execute(
+    `INSERT INTO finance (
+      id,
+      user_id,
+      event_id,
+      transaksi_id,
+      organizer_id,
+      gross_amount,
+      admin_income,
+      time_transaksi,
+      published_by
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, COALESCE(?, UTC_TIMESTAMP()), ?)`,
+    [
+      generateId(),
+      tx.user_id,
+      tx.event_id,
+      tx.transaksi_id,
+      tx.organizer_id,
+      tx.gross_amount,
+      tx.admin_income,
+      tx.paid_at,
+      tx.published_by
+    ]
+  );
+}
+
 async function createTransaction(payload, user) {
   const eventRows = await query(
     "SELECT id, title, is_published, status FROM events WHERE id = ? LIMIT 1",
@@ -202,6 +260,10 @@ async function createTransaction(payload, user) {
           );
         }
       }
+    }
+
+    if (isFreeTransaction) {
+      await insertFinanceRecord(connection, transactionId);
     }
   });
 
@@ -559,11 +621,6 @@ async function handleMidtransNotification(payload) {
     }
 
     if (mappedStatus === "paid" && currentStatus !== "paid") {
-      const [itemRows] = await connection.execute(
-        "SELECT ticket_type_id, quantity FROM transaction_items WHERE transaction_id = ?",
-        [tx.id]
-      );
-
       for (const item of itemRows) {
         for (let index = 0; index < Number(item.quantity); index += 1) {
           await connection.execute(
@@ -579,6 +636,8 @@ async function handleMidtransNotification(payload) {
           );
         }
       }
+
+      await insertFinanceRecord(connection, tx.id);
     }
 
     return { duplicated: false, status: mappedStatus };

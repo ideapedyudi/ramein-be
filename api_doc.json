@@ -8,7 +8,7 @@
   "variable": [
     {
       "key": "base_url",
-      "value": "http://ramein.fun/service/api/v1"
+      "value": "http://localhost:3000/api/v1"
     },
     {
       "key": "token_user",
@@ -115,7 +115,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"User Demo\",\n  \"email\": \"user@demo.com\",\n  \"password\": \"password123\",\n  \"phone\": \"08123456789\"\n}"
+              "raw": "{\n  \"name\": \"User Test\",\n  \"email\": \"usertest@ramein.fun\",\n  \"password\": \"password123\",\n  \"phone\": \"08123456789\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -141,7 +141,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Admin Demo\",\n  \"email\": \"admin@demo.com\",\n  \"password\": \"password123\",\n  \"phone\": \"081299999999\"\n}"
+              "raw": "{\n  \"name\": \"Initial Admin\",\n  \"email\": \"firstadmin@demo.com\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
@@ -154,7 +154,7 @@
               ]
             }
           },
-          "description": "Set role admin langsung dari DB setelah register, atau seed admin terpisah."
+          "description": "Sample admin mengikuti akun first user/default admin. Jika sudah ada, gunakan POST Login Admin."
         },
         {
           "name": "POST Login User",
@@ -182,7 +182,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"user@demo.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"email\": \"usertest@ramein.fun\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/login",
@@ -222,7 +222,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"admin@demo.com\",\n  \"password\": \"password123\"\n}"
+              "raw": "{\n  \"email\": \"firstadmin@demo.com\",\n  \"password\": \"password123\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/login",
@@ -1124,6 +1124,58 @@
             }
           },
           "description": "Update status withdraw berdasarkan id di body. Status: pending, approved, rejected. Jika rejected, events.is_withdraw dikembalikan false."
+        }
+      ]
+    },
+    {
+      "name": "Finance",
+      "item": [
+        {
+          "name": "GET Finance by Published By (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/finance/admin",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "finance",
+                "admin"
+              ]
+            }
+          },
+          "description": "List finance untuk event published_by=admin. Admin only."
+        },
+        {
+          "name": "GET Finance by Published By and Organizer (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/finance/admin/{{organizer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "finance",
+                "admin",
+                "{{organizer_id}}"
+              ]
+            }
+          },
+          "description": "List finance dengan filter published_by dan organizer_id. Jika organizer_id tidak dipakai, gunakan endpoint /finance/:published_by."
         }
       ]
     }

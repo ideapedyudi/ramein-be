@@ -1,0 +1,23 @@
+CREATE TABLE IF NOT EXISTS finance (
+  id CHAR(36) NOT NULL,
+  user_id CHAR(36) NOT NULL,
+  event_id CHAR(36) NOT NULL,
+  transaksi_id CHAR(36) NOT NULL,
+  organizer_id CHAR(36) NOT NULL,
+  gross_amount DECIMAL(14,2) NOT NULL,
+  admin_income DECIMAL(14,2) NOT NULL DEFAULT 0,
+  time_transaksi DATETIME NOT NULL,
+  published_by ENUM('user','admin') NULL,
+  created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_finance_transaksi_id (transaksi_id),
+  KEY idx_finance_user_id (user_id),
+  KEY idx_finance_event_id (event_id),
+  KEY idx_finance_organizer_id (organizer_id),
+  KEY idx_finance_published_by (published_by),
+  CONSTRAINT fk_finance_user FOREIGN KEY (user_id) REFERENCES users (id),
+  CONSTRAINT fk_finance_event FOREIGN KEY (event_id) REFERENCES events (id),
+  CONSTRAINT fk_finance_transaksi FOREIGN KEY (transaksi_id) REFERENCES transactions (id) ON DELETE CASCADE,
+  CONSTRAINT fk_finance_organizer FOREIGN KEY (organizer_id) REFERENCES organizers (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
