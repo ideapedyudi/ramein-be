@@ -55,6 +55,80 @@ function getPayloadValue(payload, camelKey, snakeKey) {
   return payload[snakeKey];
 }
 
+function padDatePart(value) {
+  return String(value).padStart(2, "0");
+}
+
+function formatDateToMysqlDateTime(date) {
+  return `${date.getUTCFullYear()}-${padDatePart(date.getUTCMonth() + 1)}-${padDatePart(date.getUTCDate())} ${padDatePart(date.getUTCHours())}:${padDatePart(date.getUTCMinutes())}:${padDatePart(date.getUTCSeconds())}`;
+}
+
+function normalizeDateTimeValue(value, fieldName) {
+  if (value === undefined || value === null || value === "") return value;
+
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) {
+      throw new ApiError(400, `Invalid ${fieldName}`);
+    }
+    return formatDateToMysqlDateTime(value);
+  }
+
+  const stringValue = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(stringValue)) {
+    return stringValue;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(stringValue)) {
+    return `${stringValue} 00:00:00`;
+  }
+
+  const parsed = new Date(stringValue);
+  if (Number.isNaN(parsed.getTime())) {
+    throw new ApiError(400, `Invalid ${fieldName}`);
+  }
+
+  return formatDateToMysqlDateTime(parsed);
+}
+
+function normalizeEventDatePayload(payload) {
+  const normalized = { ...payload };
+
+  const startDateTime = getPayloadValue(payload, "startDateTime", "start_datetime");
+  if (startDateTime !== undefined) {
+    const value = normalizeDateTimeValue(startDateTime, "startDateTime");
+    normalized.startDateTime = value;
+    normalized.start_datetime = value;
+  }
+
+  const endDateTime = getPayloadValue(payload, "endDateTime", "end_datetime");
+  if (endDateTime !== undefined) {
+    const value = normalizeDateTimeValue(endDateTime, "endDateTime");
+    normalized.endDateTime = value;
+    normalized.end_datetime = value;
+  }
+
+  if (Array.isArray(payload.ticketTypes)) {
+    normalized.ticketTypes = payload.ticketTypes.map((ticket, index) => {
+      const saleStartAt = getPayloadValue(ticket, "saleStartAt", "sale_start_at");
+      const saleEndAt = getPayloadValue(ticket, "saleEndAt", "sale_end_at");
+
+      return {
+        ...ticket,
+        saleStartAt:
+          saleStartAt === undefined
+            ? saleStartAt
+            : normalizeDateTimeValue(saleStartAt, `ticketTypes[${index}].saleStartAt`),
+        saleEndAt:
+          saleEndAt === undefined
+            ? saleEndAt
+            : normalizeDateTimeValue(saleEndAt, `ticketTypes[${index}].saleEndAt`)
+      };
+    });
+  }
+
+  return normalized;
+}
+
 function getFirstQueryValue(queryParams, keys) {
   for (const key of keys) {
     const value = queryParams[key];
@@ -416,9 +490,10 @@ async function listInterestEvents(queryParams = {}) {
 }
 
 async function createEvent(payload, user) {
+  const normalizedPayload = normalizeEventDatePayload(payload);
   const organizerRows = await query(
     "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
-    [payload.organizerId]
+    [normalizedPayload.organizerId]
   );
   const organizer = organizerRows[0];
   if (!organizer || !organizer.is_active) {
@@ -426,10 +501,10 @@ async function createEvent(payload, user) {
   }
 
   const eventId = generateId();
-  const eventType = getPayloadValue(payload, "eventType", "event_type");
-  const labelOnline = getPayloadValue(payload, "labelOnline", "label_online");
-  const urlOnline = getPayloadValue(payload, "urlOnline", "url_online");
-  const paymentType = getPayloadValue(payload, "paymentType", "payment_type") || "paid";
+  const eventType = getPayloadValue(normalizedPayload, "eventType", "event_type");
+  const labelOnline = getPayloadValue(normalizedPayload, "labelOnline", "label_online");
+  const urlOnline = getPayloadValue(normalizedPayload, "urlOnline", "url_online");
+  const paymentType = getPayloadValue(normalizedPayload, "paymentType", "payment_type") || "paid";
   const visibility = user.role === "admin" ? "public" : "private";
 
   await transaction(async (connection) => {
@@ -457,26 +532,26 @@ async function createEvent(payload, user) {
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 1, ?)`,
       [
         eventId,
-        payload.title,
-        payload.description,
-        payload.categoryId,
-        payload.organizerId,
+        normalizedPayload.title,
+        normalizedPayload.description,
+        normalizedPayload.categoryId,
+        normalizedPayload.organizerId,
         user.id,
-        payload.cityId,
-        payload.addressDetail,
-        payload.banner || null,
+        normalizedPayload.cityId,
+        normalizedPayload.addressDetail,
+        normalizedPayload.banner || null,
         eventType || null,
         labelOnline || null,
         urlOnline || null,
         paymentType,
         visibility,
-        payload.startDateTime,
-        payload.endDateTime,
+        normalizedPayload.startDateTime,
+        normalizedPayload.endDateTime,
         user.role
       ]
     );
 
-    for (const ticket of payload.ticketTypes || []) {
+    for (const ticket of normalizedPayload.ticketTypes || []) {
       const ticketTypeId = generateId();
       await connection.execute(
         `INSERT INTO event_ticket_types (
@@ -550,13 +625,14 @@ function buildEventUpdate(payload, user) {
 }
 
 async function updateEvent(id, payload, user) {
+  const normalizedPayload = normalizeEventDatePayload(payload);
   const existing = await getEventById(id);
   if (!canManageEvent(existing, user)) throw new ApiError(403, "Forbidden");
 
-  if (payload.organizerId !== undefined) {
+  if (normalizedPayload.organizerId !== undefined) {
     const organizerRows = await query(
       "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
-      [payload.organizerId]
+      [normalizedPayload.organizerId]
     );
     const organizer = organizerRows[0];
     if (!organizer || !organizer.is_active) {
@@ -564,16 +640,16 @@ async function updateEvent(id, payload, user) {
     }
   }
 
-  const { fields, values } = buildEventUpdate(payload, user);
+  const { fields, values } = buildEventUpdate(normalizedPayload, user);
 
   await transaction(async (connection) => {
     if (fields.length > 0) {
       await connection.execute(`UPDATE events SET ${fields.join(", ")} WHERE id = ?`, [...values, id]);
     }
 
-    if (payload.ticketTypes !== undefined) {
+    if (normalizedPayload.ticketTypes !== undefined) {
       await connection.execute("DELETE FROM event_ticket_types WHERE event_id = ?", [id]);
-      for (const ticket of payload.ticketTypes) {
+      for (const ticket of normalizedPayload.ticketTypes) {
         const ticketTypeId = generateId();
         await connection.execute(
           `INSERT INTO event_ticket_types (
