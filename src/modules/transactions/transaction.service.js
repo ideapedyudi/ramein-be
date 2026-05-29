@@ -19,6 +19,7 @@ function mapTransactionRow(row) {
     userId: row.user_id,
     eventId: row.event_id,
     grossAmount: Number(row.gross_amount),
+    adminIncome: Number(row.admin_income || 0),
     status: row.status,
     paymentProvider: row.payment_provider,
     snapToken: row.snap_token,
@@ -61,6 +62,10 @@ function findTicketById(tickets, ticketTypeId) {
   return tickets.find((ticket) => ticket.id === ticketTypeId);
 }
 
+function calculateAdminIncome(amount) {
+  return Math.round(Number(amount) * 0.2 * 100) / 100;
+}
+
 async function createTransaction(payload, user) {
   const eventRows = await query(
     "SELECT id, title, is_published, status FROM events WHERE id = ? LIMIT 1",
@@ -76,11 +81,13 @@ async function createTransaction(payload, user) {
   const tickets = await getTicketsByEventId(event.id);
   const now = new Date();
   const items = [];
+  const requestedByTicketType = new Map();
   let grossAmount = 0;
 
   for (const selectedItem of payload.items) {
     const ticket = findTicketById(tickets, selectedItem.ticketTypeId);
     if (!ticket) throw new ApiError(400, "Invalid ticket type");
+    const quantity = Number(selectedItem.quantity);
 
     const saleStartAt = new Date(ticket.sale_start_at);
     const saleEndAt = new Date(ticket.sale_end_at);
@@ -90,23 +97,30 @@ async function createTransaction(payload, user) {
     }
 
     const available = Number(ticket.quota) - Number(ticket.sold);
-    if (available < selectedItem.quantity) {
+    const currentRequested = requestedByTicketType.get(ticket.id) || 0;
+    if (available < currentRequested + quantity) {
       throw new ApiError(400, `Insufficient quota for ticket ${ticket.name}`);
     }
+    requestedByTicketType.set(ticket.id, currentRequested + quantity);
 
-    const subtotal = Number(ticket.price) * Number(selectedItem.quantity);
+    const unitPrice = Number(ticket.price);
+    const subtotal = unitPrice * quantity;
     grossAmount += subtotal;
     items.push({
       ticketTypeId: ticket.id,
       ticketName: ticket.name,
-      unitPrice: Number(ticket.price),
-      quantity: Number(selectedItem.quantity),
+      unitPrice,
+      quantity,
       subtotal
     });
   }
 
   const orderId = generateOrderId();
+  const transactionId = generateId();
+  const adminIncome = calculateAdminIncome(grossAmount);
   const isFreeTransaction = grossAmount === 0;
+  const transactionStatus = isFreeTransaction ? "paid" : "pending";
+  const paymentProvider = isFreeTransaction ? "free" : "midtrans";
   const payment = isFreeTransaction
     ? { token: null, redirect_url: null }
     : await paymentService.createMidtransTransaction({
@@ -115,9 +129,6 @@ async function createTransaction(payload, user) {
         customer: user
       });
 
-  const transactionId = generateId();
-  const transactionStatus = isFreeTransaction ? "paid" : "pending";
-  const paymentProvider = isFreeTransaction ? "free" : "midtrans";
   await transaction(async (connection) => {
     await connection.execute(
       `INSERT INTO transactions (
@@ -126,18 +137,20 @@ async function createTransaction(payload, user) {
         user_id,
         event_id,
         gross_amount,
+        admin_income,
         status,
         payment_provider,
         snap_token,
         redirect_url,
         paid_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'paid' THEN UTC_TIMESTAMP() ELSE NULL END)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'paid' THEN UTC_TIMESTAMP() ELSE NULL END)`,
       [
         transactionId,
         orderId,
         user.id,
         payload.eventId,
         grossAmount,
+        adminIncome,
         transactionStatus,
         paymentProvider,
         payment.token || null,
@@ -158,7 +171,15 @@ async function createTransaction(payload, user) {
           quantity,
           subtotal
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [itemId, transactionId, item.ticketTypeId, item.ticketName, item.unitPrice, item.quantity, item.subtotal]
+        [
+          itemId,
+          transactionId,
+          item.ticketTypeId,
+          item.ticketName,
+          item.unitPrice,
+          item.quantity,
+          item.subtotal
+        ]
       );
 
       if (isFreeTransaction) {
@@ -166,31 +187,32 @@ async function createTransaction(payload, user) {
           "UPDATE event_ticket_types SET sold = sold + ? WHERE id = ?",
           [Number(item.quantity), item.ticketTypeId]
         );
-      }
-    }
 
-    if (isFreeTransaction) {
-      await connection.execute(
-        `INSERT INTO ticket (
-          id,
-          user_id,
-          event_id,
-          transaction_id,
-          qr_code,
-          attendance_status
-        ) VALUES (?, ?, ?, ?, ?, 'not_attended')`,
-        [generateId(), user.id, payload.eventId, transactionId, generateQrCode()]
-      );
+        for (let index = 0; index < Number(item.quantity); index += 1) {
+          await connection.execute(
+            `INSERT INTO ticket (
+              id,
+              user_id,
+              event_id,
+              transaction_id,
+              qr_code,
+              attendance_status
+            ) VALUES (?, ?, ?, ?, ?, 'not_attended')`,
+            [generateId(), user.id, payload.eventId, transactionId, generateQrCode()]
+          );
+        }
+      }
     }
   });
 
   const createdRows = await query("SELECT * FROM transactions WHERE id = ? LIMIT 1", [transactionId]);
-  const mapped = mapTransactionRow(createdRows[0]);
-  mapped.items = items;
+  const mappedTransactions = await attachItems(createdRows.map(mapTransactionRow));
+  const mapped = mappedTransactions[0];
 
   if (isFreeTransaction) {
     const ticketRows = await query(
       `SELECT
+        transaction_id,
         id AS ticket_id,
         qr_code,
         attendance_status,
@@ -199,10 +221,10 @@ async function createTransaction(payload, user) {
         updated_at AS ticket_updated_at
       FROM ticket
       WHERE transaction_id = ?
-      LIMIT 1`,
+      ORDER BY created_at ASC, id ASC`,
       [transactionId]
     );
-    mapped.ticket = mapTicketRow(ticketRows[0]);
+    mapped.tickets = ticketRows.map(mapTicketRow);
   }
 
   return mapped;
@@ -312,15 +334,10 @@ async function getMyPurchasedEvents(userId) {
       t.id AS transaction_id,
       t.order_id,
       t.gross_amount,
+      t.admin_income,
       t.status AS transaction_status,
       t.paid_at,
       t.created_at AS transaction_created_at,
-      tk.id AS ticket_id,
-      tk.qr_code,
-      tk.attendance_status,
-      tk.attended_at,
-      tk.created_at AS ticket_created_at,
-      tk.updated_at AS ticket_updated_at,
       e.id AS event_id,
       e.title AS event_title,
       e.description AS event_description,
@@ -340,7 +357,6 @@ async function getMyPurchasedEvents(userId) {
     JOIN categories c ON c.id = e.category_id
     JOIN cities ci ON ci.id = e.city_id
     JOIN organizers o ON o.id = e.organizer_id
-    LEFT JOIN ticket tk ON tk.transaction_id = t.id
     WHERE t.user_id = ? AND t.status = 'paid'
     ORDER BY t.paid_at DESC, t.created_at DESC`,
     [userId]
@@ -356,11 +372,32 @@ async function getMyPurchasedEvents(userId) {
     `SELECT transaction_id, quantity FROM transaction_items WHERE transaction_id IN (${placeholders})`,
     transactionIds
   );
+  const ticketRows = await query(
+    `SELECT
+      transaction_id,
+      id AS ticket_id,
+      qr_code,
+      attendance_status,
+      attended_at,
+      created_at AS ticket_created_at,
+      updated_at AS ticket_updated_at
+    FROM ticket
+    WHERE transaction_id IN (${placeholders})
+    ORDER BY created_at ASC, id ASC`,
+    transactionIds
+  );
 
   const ticketCountByTransactionId = new Map();
   for (const row of itemRows) {
     const currentTotal = ticketCountByTransactionId.get(row.transaction_id) || 0;
     ticketCountByTransactionId.set(row.transaction_id, currentTotal + Number(row.quantity));
+  }
+
+  const ticketMap = new Map();
+  for (const row of ticketRows) {
+    const list = ticketMap.get(row.transaction_id) || [];
+    list.push(mapTicketRow(row));
+    ticketMap.set(row.transaction_id, list);
   }
 
   const purchasedEventMap = new Map();
@@ -404,10 +441,11 @@ async function getMyPurchasedEvents(userId) {
           id: row.transaction_id,
           orderId: row.order_id,
           grossAmount: Number(row.gross_amount),
+          adminIncome: Number(row.admin_income || 0),
           status: row.transaction_status,
           paidAt: row.paid_at,
           createdAt: row.transaction_created_at,
-          ticket: mapTicketRow(row)
+          tickets: ticketMap.get(row.transaction_id) || []
         }
       });
       continue;
@@ -520,19 +558,27 @@ async function handleMidtransNotification(payload) {
       }
     }
 
-    if (mappedStatus === "paid") {
-      await connection.execute(
-        `INSERT INTO ticket (
-          id,
-          user_id,
-          event_id,
-          transaction_id,
-          qr_code,
-          attendance_status
-        ) VALUES (?, ?, ?, ?, ?, 'not_attended')
-        ON DUPLICATE KEY UPDATE updated_at = updated_at`,
-        [generateId(), tx.user_id, tx.event_id, tx.id, generateQrCode()]
+    if (mappedStatus === "paid" && currentStatus !== "paid") {
+      const [itemRows] = await connection.execute(
+        "SELECT ticket_type_id, quantity FROM transaction_items WHERE transaction_id = ?",
+        [tx.id]
       );
+
+      for (const item of itemRows) {
+        for (let index = 0; index < Number(item.quantity); index += 1) {
+          await connection.execute(
+            `INSERT INTO ticket (
+              id,
+              user_id,
+              event_id,
+              transaction_id,
+              qr_code,
+              attendance_status
+            ) VALUES (?, ?, ?, ?, ?, 'not_attended')`,
+            [generateId(), tx.user_id, tx.event_id, tx.id, generateQrCode()]
+          );
+        }
+      }
     }
 
     return { duplicated: false, status: mappedStatus };

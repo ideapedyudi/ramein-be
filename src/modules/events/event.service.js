@@ -220,6 +220,7 @@ async function listPurchasedEvents(userId) {
       t.id AS transaction_id,
       t.order_id,
       t.gross_amount,
+      t.admin_income,
       t.status AS transaction_status,
       t.paid_at,
       t.created_at AS transaction_created_at,
@@ -280,6 +281,7 @@ async function listPurchasedEvents(userId) {
           id: row.transaction_id,
           orderId: row.order_id,
           grossAmount: Number(row.gross_amount),
+          adminIncome: Number(row.admin_income || 0),
           status: row.transaction_status,
           paidAt: row.paid_at,
           createdAt: row.transaction_created_at

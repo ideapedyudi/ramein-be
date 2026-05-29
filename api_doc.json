@@ -682,8 +682,9 @@
               "script": {
                 "exec": [
                   "const json = pm.response.json();",
-                  "if (json?.data?.orderId) pm.collectionVariables.set('order_id', json.data.orderId);",
-                  "if (json?.data?.grossAmount) pm.collectionVariables.set('gross_amount', String(json.data.grossAmount));"
+                  "const tx = json?.data?.transactions?.[0] || json?.data;",
+                  "if (tx?.orderId) pm.collectionVariables.set('order_id', tx.orderId);",
+                  "if (tx?.grossAmount !== undefined) pm.collectionVariables.set('gross_amount', String(tx.grossAmount));"
                 ],
                 "type": "text/javascript"
               }
@@ -703,7 +704,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"items\": [\n    {\n      \"ticketTypeId\": \"{{ticket_type_id}}\",\n      \"quantity\": 1\n    }\n  ]\n}"
+              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"items\": [\n    {\n      \"ticketTypeId\": \"{{ticket_type_id}}\",\n      \"quantity\": 2\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/transactions",

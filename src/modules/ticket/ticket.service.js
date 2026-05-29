@@ -27,6 +27,7 @@ const ticketSelect = `
   o.name AS organizer_name,
   t.order_id,
   t.gross_amount,
+  t.admin_income,
   t.status AS transaction_status,
   t.payment_provider,
   t.snap_token,
@@ -91,6 +92,7 @@ function mapTicketRow(row) {
           id: row.transaction_id,
           orderId: row.order_id,
           grossAmount: Number(row.gross_amount),
+          adminIncome: Number(row.admin_income || 0),
           status: row.transaction_status,
           paymentProvider: row.payment_provider,
           snapToken: row.snap_token,
@@ -117,7 +119,7 @@ function mapTransactionItemRow(row) {
 async function attachTransactionItems(ticketList) {
   if (ticketList.length === 0) return ticketList;
 
-  const transactionIds = ticketList.map((item) => item.transactionId);
+  const transactionIds = [...new Set(ticketList.map((item) => item.transactionId))];
   const placeholders = transactionIds.map(() => "?").join(", ");
   const rows = await query(
     `SELECT * FROM transaction_items WHERE transaction_id IN (${placeholders}) ORDER BY id ASC`,
@@ -142,6 +144,43 @@ async function attachTransactionItems(ticketList) {
   }));
 }
 
+function mapTicketDetail(ticket) {
+  return {
+    id: ticket.id,
+    qrCode: ticket.qrCode,
+    attendanceStatus: ticket.attendanceStatus,
+    attendedAt: ticket.attendedAt,
+    createdAt: ticket.createdAt,
+    updatedAt: ticket.updatedAt
+  };
+}
+
+function groupTicketsByTransaction(ticketList) {
+  const transactionMap = new Map();
+
+  for (const ticket of ticketList) {
+    const existing = transactionMap.get(ticket.transactionId);
+
+    if (!existing) {
+      const quantity = ticket.transaction?.items?.reduce((total, item) => total + Number(item.quantity), 0) || 1;
+      transactionMap.set(ticket.transactionId, {
+        ...ticket,
+        quantity,
+        ticketCount: 1,
+        unitPrice: ticket.transaction?.items?.[0]?.unitPrice ?? ticket.transaction?.grossAmount ?? 0,
+        totalPrice: ticket.transaction?.grossAmount ?? 0,
+        tickets: [mapTicketDetail(ticket)]
+      });
+      continue;
+    }
+
+    existing.ticketCount += 1;
+    existing.tickets.push(mapTicketDetail(ticket));
+  }
+
+  return Array.from(transactionMap.values());
+}
+
 async function getMyTickets(userId) {
   const rows = await query(
     `SELECT
@@ -158,7 +197,8 @@ async function getMyTickets(userId) {
     [userId]
   );
 
-  return attachTransactionItems(rows.map(mapTicketRow));
+  const tickets = await attachTransactionItems(rows.map(mapTicketRow));
+  return groupTicketsByTransaction(tickets);
 }
 
 function normalizeAttendanceStatus(status) {
