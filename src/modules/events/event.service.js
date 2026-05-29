@@ -318,7 +318,7 @@ async function listRecommendedEvents(queryParams = {}) {
   }
 
   return fetchEvents({
-    whereClauses: ["e.status = 'published'", "e.category_id = ?"],
+    whereClauses: ["e.visibility = 'public'", "e.category_id = ?"],
     values: [categoryId],
     orderBy: "e.created_at DESC",
     limit: 5
