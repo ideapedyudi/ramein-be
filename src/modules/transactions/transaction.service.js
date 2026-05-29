@@ -617,11 +617,7 @@ async function handleMidtransNotification(payload) {
           "UPDATE event_ticket_types SET sold = sold + ? WHERE id = ?",
           [Number(item.quantity), item.ticket_type_id]
         );
-      }
-    }
 
-    if (mappedStatus === "paid" && currentStatus !== "paid") {
-      for (const item of itemRows) {
         for (let index = 0; index < Number(item.quantity); index += 1) {
           await connection.execute(
             `INSERT INTO ticket (
