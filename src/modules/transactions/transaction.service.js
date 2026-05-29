@@ -61,6 +61,10 @@ function findTicketById(tickets, ticketTypeId) {
   return tickets.find((ticket) => ticket.id === ticketTypeId);
 }
 
+function canAccessEventStatistic(event, user) {
+  return user.role === "admin" || event.created_by === user.id;
+}
+
 async function createTransaction(payload, user) {
   const eventRows = await query(
     "SELECT id, title, is_published, status FROM events WHERE id = ? LIMIT 1",
@@ -201,6 +205,64 @@ async function getMyTransactions(userId) {
   });
 
   return attachItems(txs);
+}
+
+async function getEventStatistic(eventId, user) {
+  const eventRows = await query("SELECT id, created_by FROM events WHERE id = ? LIMIT 1", [eventId]);
+  const event = eventRows[0];
+
+  if (!event) {
+    throw new ApiError(404, "Event not found");
+  }
+
+  if (!canAccessEventStatistic(event, user)) {
+    throw new ApiError(403, "You are not allowed to view statistics for this event");
+  }
+
+  const rows = await query(
+    `SELECT
+      COALESCE(ticket_type_stats.terjual, 0) AS terjual,
+      COALESCE(ticket_attendance_stats.hadir, 0) AS hadir,
+      COALESCE(ticket_type_stats.kuota, 0) AS kuota,
+      COALESCE(transaction_stats.revenue, 0) AS revenue
+    FROM events e
+    LEFT JOIN (
+      SELECT
+        event_id,
+        SUM(sold) AS terjual,
+        SUM(quota) AS kuota
+      FROM event_ticket_types
+      WHERE event_id = ?
+      GROUP BY event_id
+    ) ticket_type_stats ON ticket_type_stats.event_id = e.id
+    LEFT JOIN (
+      SELECT
+        event_id,
+        COUNT(*) AS hadir
+      FROM ticket
+      WHERE event_id = ? AND attendance_status = 'attended'
+      GROUP BY event_id
+    ) ticket_attendance_stats ON ticket_attendance_stats.event_id = e.id
+    LEFT JOIN (
+      SELECT
+        event_id,
+        SUM(gross_amount) AS revenue
+      FROM transactions
+      WHERE event_id = ? AND status = 'paid'
+      GROUP BY event_id
+    ) transaction_stats ON transaction_stats.event_id = e.id
+    WHERE e.id = ?
+    LIMIT 1`,
+    [eventId, eventId, eventId, eventId]
+  );
+
+  const statistic = rows[0] || {};
+  return {
+    terjual: Number(statistic.terjual || 0),
+    hadir: Number(statistic.hadir || 0),
+    kuota: Number(statistic.kuota || 0),
+    revenue: Number(statistic.revenue || 0)
+  };
 }
 
 async function getMyPurchasedEvents(userId) {
@@ -440,6 +502,7 @@ export default {
   createTransaction,
   getMyTransactions,
   getMyPurchasedEvents,
+  getEventStatistic,
   getAllTransactions,
   handleMidtransNotification
 };

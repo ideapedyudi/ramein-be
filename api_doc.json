@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "c4b5ce3d-9ec7-4fb5-a3ee-e93d12f95f23",
     "name": "Ramein BE API",
-    "description": "Postman collection untuk testing API backend Ramein (Express + MYSQL + Midtrans).",
+    "description": "Postman collection untuk API backend Ramein (Express + MYSQL + Midtrans).",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

@@ -7,7 +7,6 @@ Backend aplikasi event/konser dengan:
 - Master data + event management
 - Transaksi tiket
 - Integrasi Midtrans (Snap + webhook)
-- Unit/integration testing (Jest + Supertest)
 
 Semua ID utama (`id`) memakai UUID v4 (contoh: `550e8400-e29b-41d4-a716-446655440000`), bukan auto increment.
 
@@ -35,18 +34,6 @@ Script ini sekarang hanya boleh dijalankan untuk database dengan nama berakhiran
 npm run dev
 ```
 
-## Testing
-
-Untuk test, siapkan database terpisah (misalnya `ramein_test`) lalu set env:
-```bash
-MYSQL_DATABASE=ramein_test
-NODE_ENV=test
-npm test
-```
-Bootstrap test akan menolak reset kalau `MYSQL_DATABASE` tidak berakhiran `_test`.
-
-`tests/setup.js` akan membuat tabel dari `src/db/schema.sql` dan membersihkan data tiap test.
-
 ## Base URL
 
 `/api/v1`
@@ -61,7 +48,7 @@ Bootstrap test akan menolak reset kalau `MYSQL_DATABASE` tidak berakhiran `_test
 Semua endpoint `/events` memerlukan token login.
 `/events/trending` menampilkan 8 event terbaru yang baru dibuat.
 `/events/recommended` default ke kategori `Konser` jika tidak ada parameter minat/category yang dikirim.
-- Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`
+- Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`, `/transactions/statistic/event/:event_id`
 - Payment webhook: `/payments/midtrans/notification`
 
 ## Catatan Midtrans

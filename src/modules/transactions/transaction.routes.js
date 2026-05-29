@@ -1,5 +1,5 @@
 import express from "express";
-import { body  } from "express-validator";
+import { body, param } from "express-validator";
 import authenticate from "../../middlewares/authenticate.js";
 import authorize from "../../middlewares/authorize.js";
 import validateRequest from "../../middlewares/validateRequest.js";
@@ -21,6 +21,12 @@ router.post(
 );
 
 router.get("/me", authenticate, controller.getMyTransactions);
+router.get(
+  "/statistic/event/:event_id",
+  authenticate,
+  [param("event_id").isUUID(), validateRequest],
+  controller.getEventStatistic
+);
 router.get("/admin/all", authenticate, authorize("admin"), controller.getAllTransactions);
 
 export default router;

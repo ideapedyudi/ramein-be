@@ -1,14 +1,12 @@
 {
   "name": "ramein-be",
   "version": "1.0.0",
-  "description": "Backend aplikasi event/konser dengan Express.js, MySQL (SQL raw), Midtrans, dan unit testing.",
+  "description": "Backend aplikasi event/konser dengan Express.js, MySQL (SQL raw), dan Midtrans.",
   "type": "module",
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --runInBand --detectOpenHandles",
-    "test:watch": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --watch"
+    "start": "node src/server.js"
   },
   "keywords": [
     "express",
@@ -31,8 +29,6 @@
     "morgan": "^1.10.0"
   },
   "devDependencies": {
-    "jest": "^29.7.0",
-    "nodemon": "^3.1.4",
-    "supertest": "^7.0.0"
+    "nodemon": "^3.1.4"
   }
 }

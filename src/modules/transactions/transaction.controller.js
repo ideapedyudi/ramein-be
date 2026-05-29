@@ -17,8 +17,14 @@ const getAllTransactions = asyncHandler(async (req, res) => {
   return successResponse(res, 200, "All transactions", data);
 });
 
+const getEventStatistic = asyncHandler(async (req, res) => {
+  const data = await transactionService.getEventStatistic(req.params.event_id, req.user);
+  return successResponse(res, 200, "Event transaction statistic", data);
+});
+
 export default {
   createTransaction,
   getMyTransactions,
+  getEventStatistic,
   getAllTransactions
 };
