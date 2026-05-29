@@ -8,9 +8,10 @@ function mapWithdrawRow(row) {
     eventId: row.event_id,
     userId: row.user_id,
     totalAmount: Number(row.total_amount),
+    bank_name: row.bank_name,
+    bank_account: row.bank_account,
+    account_number: row.account_number,
     status: row.status,
-    isApproval: Boolean(row.is_approval),
-    is_approval: Boolean(row.is_approval),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     event: row.event_title
@@ -39,6 +40,9 @@ function getPayloadValue(payload, camelKey, snakeKey) {
 async function createWithdraw(payload, user) {
   const eventId = getPayloadValue(payload, "eventId", "event_id");
   const totalAmount = Number(getPayloadValue(payload, "totalAmount", "total_amount"));
+  const bankName = getPayloadValue(payload, "bankName", "bank_name") || null;
+  const bankAccount = getPayloadValue(payload, "bankAccount", "bank_account") || null;
+  const accountNumber = getPayloadValue(payload, "accountNumber", "account_number") || null;
 
   const eventRows = await query(
     "SELECT id, title, created_by, is_withdraw FROM events WHERE id = ? LIMIT 1",
@@ -67,10 +71,12 @@ async function createWithdraw(payload, user) {
         event_id,
         user_id,
         total_amount,
-        status,
-        is_approval
-      ) VALUES (?, ?, ?, ?, 'pending', 0)`,
-      [withdrawId, eventId, user.id, totalAmount]
+        bank_name,
+        bank_account,
+        account_number,
+        status
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'pending')`,
+      [withdrawId, eventId, user.id, totalAmount, bankName, bankAccount, accountNumber]
     );
 
     await connection.execute(
@@ -133,8 +139,55 @@ async function getAllWithdraws() {
   return rows.map(mapWithdrawRow);
 }
 
+async function updateWithdrawStatus(payload) {
+  const withdrawId = payload.id || payload.withdraw_id;
+  const nextStatus = payload.status;
+
+  const withdrawRows = await query(
+    "SELECT id, event_id, status FROM withdraw WHERE id = ? LIMIT 1",
+    [withdrawId]
+  );
+  const withdraw = withdrawRows[0];
+
+  if (!withdraw) {
+    throw new ApiError(404, "Withdraw not found");
+  }
+
+  await transaction(async (connection) => {
+    await connection.execute(
+      "UPDATE withdraw SET status = ? WHERE id = ?",
+      [nextStatus, withdrawId]
+    );
+
+    if (nextStatus === "rejected") {
+      await connection.execute(
+        "UPDATE events SET is_withdraw = 0 WHERE id = ?",
+        [withdraw.event_id]
+      );
+    }
+  });
+
+  const rows = await query(
+    `SELECT
+      w.*,
+      e.title AS event_title,
+      e.is_withdraw AS event_is_withdraw,
+      u.name AS user_name,
+      u.email AS user_email
+    FROM withdraw w
+    JOIN events e ON e.id = w.event_id
+    JOIN users u ON u.id = w.user_id
+    WHERE w.id = ?
+    LIMIT 1`,
+    [withdrawId]
+  );
+
+  return mapWithdrawRow(rows[0]);
+}
+
 export default {
   createWithdraw,
   getMyWithdraws,
-  getAllWithdraws
+  getAllWithdraws,
+  updateWithdrawStatus
 };

@@ -45,6 +45,10 @@
     {
       "key": "organizer_id",
       "value": ""
+    },
+    {
+      "key": "withdraw_id",
+      "value": ""
     }
   ],
   "item": [
@@ -571,7 +575,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"title\": \"Konser Akhir Tahun\",\n  \"description\": \"Konser musik dengan banyak artis.\",\n  \"categoryId\": \"{{category_id}}\",\n  \"organizerId\": \"{{organizer_id}}\",\n  \"cityId\": \"{{city_id}}\",\n  \"addressDetail\": \"Gate A, lantai 1\",\n  \"startDateTime\": \"2030-12-20T19:00:00.000Z\",\n  \"endDateTime\": \"2030-12-20T22:00:00.000Z\",\n  \"ticketTypes\": [\n    {\n      \"name\": \"Regular\",\n      \"price\": 150000,\n      \"quota\": 100,\n      \"saleStartAt\": \"2030-11-01T00:00:00.000Z\",\n      \"saleEndAt\": \"2030-12-20T18:00:00.000Z\"\n    }\n  ]\n}"
+              "raw": "{\n  \"title\": \"Konser Akhir Tahun\",\n  \"description\": \"Konser musik dengan banyak artis.\",\n  \"categoryId\": \"{{category_id}}\",\n  \"organizerId\": \"{{organizer_id}}\",\n  \"cityId\": \"{{city_id}}\",\n  \"addressDetail\": \"Gate A, lantai 1\",\n  \"paymentType\": \"paid\",\n  \"startDateTime\": \"2030-12-20T19:00:00.000Z\",\n  \"endDateTime\": \"2030-12-20T22:00:00.000Z\",\n  \"ticketTypes\": [\n    {\n      \"name\": \"Regular\",\n      \"price\": 150000,\n      \"quota\": 100,\n      \"saleStartAt\": \"2030-11-01T00:00:00.000Z\",\n      \"saleEndAt\": \"2030-12-20T18:00:00.000Z\"\n    }\n  ]\n}"
             },
             "url": {
               "raw": "{{base_url}}/events",
@@ -582,7 +586,8 @@
                 "events"
               ]
             }
-          }
+          },
+          "description": "Event langsung published saat dibuat. Response berisi isWithdraw/is_withdraw default false."
         },
         {
           "name": "GET Event List",
@@ -676,20 +681,6 @@
       "item": [
         {
           "name": "POST Create Transaction",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "exec": [
-                  "const json = pm.response.json();",
-                  "const tx = json?.data?.transactions?.[0] || json?.data;",
-                  "if (tx?.orderId) pm.collectionVariables.set('order_id', tx.orderId);",
-                  "if (tx?.grossAmount !== undefined) pm.collectionVariables.set('gross_amount', String(tx.grossAmount));"
-                ],
-                "type": "text/javascript"
-              }
-            }
-          ],
           "request": {
             "method": "POST",
             "header": [
@@ -702,10 +693,6 @@
                 "value": "application/json"
               }
             ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"items\": [\n    {\n      \"ticketTypeId\": \"{{ticket_type_id}}\",\n      \"quantity\": 2\n    }\n  ]\n}"
-            },
             "url": {
               "raw": "{{base_url}}/transactions",
               "host": [
@@ -714,8 +701,27 @@
               "path": [
                 "transactions"
               ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"items\": [\n    {\n      \"ticketTypeId\": \"{{ticket_type_id}}\",\n      \"quantity\": 2\n    }\n  ]\n}"
             }
-          }
+          },
+          "description": "Quantity lebih dari 1 tetap membuat 1 transaksi. Jika transaksi paid/free, ticket dibuat sejumlah quantity. adminIncome adalah 20% dari grossAmount.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "const tx = json?.data;",
+                  "if (tx?.orderId) pm.collectionVariables.set('order_id', tx.orderId);",
+                  "if (tx?.grossAmount !== undefined) pm.collectionVariables.set('gross_amount', String(tx.grossAmount));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
         },
         {
           "name": "GET My Transactions",
@@ -738,6 +744,31 @@
               ]
             }
           }
+        },
+        {
+          "name": "GET Event Transaction Statistic",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/transactions/statistic/event/{{event_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "transactions",
+                "statistic",
+                "event",
+                "{{event_id}}"
+              ]
+            }
+          },
+          "description": "Revenue dihitung dari transaksi paid: SUM(gross_amount - admin_income)."
         },
         {
           "name": "GET All Transactions (Admin)",
@@ -794,6 +825,305 @@
             }
           },
           "description": "Isi `signature_key` sesuai format sha512(order_id + status_code + gross_amount + MIDTRANS_SERVER_KEY)."
+        }
+      ]
+    },
+    {
+      "name": "Tickets",
+      "item": [
+        {
+          "name": "GET My Tickets (Grouped by Transaction)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ticket",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ticket"
+              ]
+            }
+          },
+          "description": "List ticket user digroup per transaction. Jika quantity 2, response utama 1 item dengan tickets berisi 2 QR."
+        },
+        {
+          "name": "GET My Tickets Alias",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ticket/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ticket",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Event Tickets All",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ticket/event-ticket/{{event_id}}/all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ticket",
+                "event-ticket",
+                "{{event_id}}",
+                "all"
+              ]
+            }
+          },
+          "description": "List per ticket untuk kebutuhan check-in/scan."
+        },
+        {
+          "name": "GET Event Tickets Hadir",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ticket/event-ticket/{{event_id}}/hadir",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ticket",
+                "event-ticket",
+                "{{event_id}}",
+                "hadir"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET Event Tickets Tidak Hadir",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ticket/event-ticket/{{event_id}}/tidak_hadir",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ticket",
+                "event-ticket",
+                "{{event_id}}",
+                "tidak_hadir"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Scan QR Code",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ticket/qr-code/scan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ticket",
+                "qr-code",
+                "scan"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"qrCode\": \"ISI_QR_CODE_TICKET\"\n}"
+            }
+          }
+        },
+        {
+          "name": "POST Scan QR Code by Param",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/ticket/qr-code/ISI_QR_CODE_TICKET/scan",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "ticket",
+                "qr-code",
+                "ISI_QR_CODE_TICKET",
+                "scan"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Withdraw",
+      "item": [
+        {
+          "name": "POST Create Withdraw",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/withdraw",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "withdraw"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event_id\": \"{{event_id}}\",\n  \"total_amount\": 120000,\n  \"bank_name\": \"BCA\",\n  \"bank_account\": \"Nama Pemilik Rekening\",\n  \"account_number\": \"1234567890\"\n}"
+            }
+          },
+          "description": "Membuat request withdraw. user_id diambil dari token login. Jika berhasil, events.is_withdraw menjadi true.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.id) pm.collectionVariables.set('withdraw_id', json.data.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET My Withdraws",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/withdraw/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "withdraw",
+                "me"
+              ]
+            }
+          }
+        },
+        {
+          "name": "GET All Withdraws (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/withdraw/all",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "withdraw",
+                "all"
+              ]
+            }
+          }
+        },
+        {
+          "name": "POST Update Withdraw Status (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/withdraw/status",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "withdraw",
+                "status"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{withdraw_id}}\",\n  \"status\": \"approved\"\n}"
+            }
+          },
+          "description": "Update status withdraw berdasarkan id di body. Status: pending, approved, rejected. Jika rejected, events.is_withdraw dikembalikan false."
         }
       ]
     }

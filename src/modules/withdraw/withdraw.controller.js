@@ -17,8 +17,14 @@ const getAllWithdraws = asyncHandler(async (req, res) => {
   return successResponse(res, 200, "All withdraw list", data);
 });
 
+const updateWithdrawStatus = asyncHandler(async (req, res) => {
+  const data = await withdrawService.updateWithdrawStatus(req.body);
+  return successResponse(res, 200, "Withdraw status updated", data);
+});
+
 export default {
   createWithdraw,
   getMyWithdraws,
-  getAllWithdraws
+  getAllWithdraws,
+  updateWithdrawStatus
 };

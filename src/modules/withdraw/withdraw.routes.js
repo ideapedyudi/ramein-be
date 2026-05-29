@@ -27,6 +27,12 @@ router.post(
       }
       return true;
     }),
+    body("bankName").optional().isString(),
+    body("bank_name").optional().isString(),
+    body("bankAccount").optional().isString(),
+    body("bank_account").optional().isString(),
+    body("accountNumber").optional().isString(),
+    body("account_number").optional().isString(),
     validateRequest
   ],
   controller.createWithdraw
@@ -34,5 +40,23 @@ router.post(
 
 router.get("/me", authenticate, controller.getMyWithdraws);
 router.get("/all", authenticate, authorize("admin"), controller.getAllWithdraws);
+router.post(
+  "/status",
+  authenticate,
+  authorize("admin"),
+  [
+    body("id").optional().isUUID(),
+    body("withdraw_id").optional().isUUID(),
+    body().custom((value) => {
+      if (!value.id && !value.withdraw_id) {
+        throw new Error("id is required");
+      }
+      return true;
+    }),
+    body("status").isIn(["pending", "approved", "rejected"]),
+    validateRequest
+  ],
+  controller.updateWithdrawStatus
+);
 
 export default router;
