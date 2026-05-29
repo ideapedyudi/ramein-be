@@ -295,7 +295,11 @@ async function scanQrCode(qrCode, user) {
     throw new ApiError(404, "QR code not found");
   }
 
-  if (!canScanTicket(existing, user)) {
+  const isOnlineEvent = String(existing.event?.eventType || "")
+    .toLowerCase()
+    .trim() === "online";
+
+  if (!isOnlineEvent && !canScanTicket(existing, user)) {
     throw new ApiError(403, "You are not allowed to scan this QR code");
   }
 
