@@ -61,10 +61,6 @@ function findTicketById(tickets, ticketTypeId) {
   return tickets.find((ticket) => ticket.id === ticketTypeId);
 }
 
-function canAccessEventStatistic(event, user) {
-  return user.role === "admin" || event.created_by === user.id;
-}
-
 async function createTransaction(payload, user) {
   const eventRows = await query(
     "SELECT id, title, is_published, status FROM events WHERE id = ? LIMIT 1",
@@ -213,10 +209,6 @@ async function getEventStatistic(eventId, user) {
 
   if (!event) {
     throw new ApiError(404, "Event not found");
-  }
-
-  if (!canAccessEventStatistic(event, user)) {
-    throw new ApiError(403, "You are not allowed to view statistics for this event");
   }
 
   const rows = await query(
