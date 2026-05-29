@@ -360,7 +360,7 @@ async function createEvent(payload, user) {
         status,
         is_published,
         published_by
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 0, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'published', 1, ?)`,
       [
         eventId,
         payload.title,
@@ -452,11 +452,6 @@ function buildEventUpdate(payload, user) {
     }
   }
 
-  if (user.role !== "admin") {
-    fields.push("status = 'pending'");
-    fields.push("is_published = 0");
-  }
-
   return { fields, values };
 }
 
@@ -521,15 +516,6 @@ async function deleteEvent(id, user) {
   await query("DELETE FROM events WHERE id = ?", [id]);
 }
 
-async function publishEvent(id, user) {
-  if (user.role !== "admin") throw new ApiError(403, "Forbidden");
-
-  const result = await query("UPDATE events SET status = 'published', is_published = 1 WHERE id = ?", [id]);
-  if (result.affectedRows === 0) throw new ApiError(404, "Event not found");
-
-  return getEventById(id);
-}
-
 export default {
   listEvents,
   listMyEvents,
@@ -539,6 +525,5 @@ export default {
   listRecommendedEvents,
   createEvent,
   updateEvent,
-  deleteEvent,
-  publishEvent
+  deleteEvent
 };

@@ -31,7 +31,7 @@ function mapTransactionRow(row) {
 }
 
 function mapTicketRow(row) {
-  if (!row.ticket_id) return null;
+  if (!row?.ticket_id) return null;
 
   return {
     id: row.ticket_id,
@@ -106,13 +106,18 @@ async function createTransaction(payload, user) {
   }
 
   const orderId = generateOrderId();
-  const payment = await paymentService.createMidtransTransaction({
-    orderId,
-    grossAmount,
-    customer: user
-  });
+  const isFreeTransaction = grossAmount === 0;
+  const payment = isFreeTransaction
+    ? { token: null, redirect_url: null }
+    : await paymentService.createMidtransTransaction({
+        orderId,
+        grossAmount,
+        customer: user
+      });
 
   const transactionId = generateId();
+  const transactionStatus = isFreeTransaction ? "paid" : "pending";
+  const paymentProvider = isFreeTransaction ? "free" : "midtrans";
   await transaction(async (connection) => {
     await connection.execute(
       `INSERT INTO transactions (
@@ -122,17 +127,22 @@ async function createTransaction(payload, user) {
         event_id,
         gross_amount,
         status,
+        payment_provider,
         snap_token,
-        redirect_url
-      ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+        redirect_url,
+        paid_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 'paid' THEN UTC_TIMESTAMP() ELSE NULL END)`,
       [
         transactionId,
         orderId,
         user.id,
         payload.eventId,
         grossAmount,
+        transactionStatus,
+        paymentProvider,
         payment.token || null,
-        payment.redirect_url || null
+        payment.redirect_url || null,
+        transactionStatus
       ]
     );
 
@@ -150,12 +160,51 @@ async function createTransaction(payload, user) {
         ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
         [itemId, transactionId, item.ticketTypeId, item.ticketName, item.unitPrice, item.quantity, item.subtotal]
       );
+
+      if (isFreeTransaction) {
+        await connection.execute(
+          "UPDATE event_ticket_types SET sold = sold + ? WHERE id = ?",
+          [Number(item.quantity), item.ticketTypeId]
+        );
+      }
+    }
+
+    if (isFreeTransaction) {
+      await connection.execute(
+        `INSERT INTO ticket (
+          id,
+          user_id,
+          event_id,
+          transaction_id,
+          qr_code,
+          attendance_status
+        ) VALUES (?, ?, ?, ?, ?, 'not_attended')`,
+        [generateId(), user.id, payload.eventId, transactionId, generateQrCode()]
+      );
     }
   });
 
   const createdRows = await query("SELECT * FROM transactions WHERE id = ? LIMIT 1", [transactionId]);
   const mapped = mapTransactionRow(createdRows[0]);
   mapped.items = items;
+
+  if (isFreeTransaction) {
+    const ticketRows = await query(
+      `SELECT
+        id AS ticket_id,
+        qr_code,
+        attendance_status,
+        attended_at,
+        created_at AS ticket_created_at,
+        updated_at AS ticket_updated_at
+      FROM ticket
+      WHERE transaction_id = ?
+      LIMIT 1`,
+      [transactionId]
+    );
+    mapped.ticket = mapTicketRow(ticketRows[0]);
+  }
+
   return mapped;
 }
 

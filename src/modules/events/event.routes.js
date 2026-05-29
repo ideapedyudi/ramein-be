@@ -2,7 +2,6 @@ import express from "express";
 import { body, query as queryValidator } from "express-validator";
 import authenticate from "../../middlewares/authenticate.js";
 import optionalAuthenticate from "../../middlewares/optionalAuthenticate.js";
-import authorize from "../../middlewares/authorize.js";
 import validateRequest from "../../middlewares/validateRequest.js";
 import controller from "./event.controller.js";
 
@@ -48,6 +47,5 @@ router.post(
 
 router.patch("/:id", authenticate, controller.updateEvent);
 router.delete("/:id", authenticate, controller.deleteEvent);
-router.post("/:id/publish", authenticate, authorize("admin"), controller.publishEvent);
 
 export default router;

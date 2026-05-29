@@ -648,29 +648,6 @@
           }
         },
         {
-          "name": "POST Publish Event (Admin)",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token_admin}}"
-              }
-            ],
-            "url": {
-              "raw": "{{base_url}}/events/{{event_id}}/publish",
-              "host": [
-                "{{base_url}}"
-              ],
-              "path": [
-                "events",
-                "{{event_id}}",
-                "publish"
-              ]
-            }
-          }
-        },
-        {
           "name": "DELETE Event (Owner/Admin)",
           "request": {
             "method": "DELETE",

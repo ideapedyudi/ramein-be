@@ -47,11 +47,6 @@ const deleteEvent = asyncHandler(async (req, res) => {
   return successResponse(res, 200, "Event deleted");
 });
 
-const publishEvent = asyncHandler(async (req, res) => {
-  const data = await eventService.publishEvent(req.params.id, req.user);
-  return successResponse(res, 200, "Event published", data);
-});
-
 export default {
   listEvents,
   listMyEvents,
@@ -61,6 +56,5 @@ export default {
   getEvent,
   createEvent,
   updateEvent,
-  deleteEvent,
-  publishEvent
+  deleteEvent
 };
