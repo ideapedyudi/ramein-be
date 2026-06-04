@@ -9,6 +9,7 @@ import transactionRoutes from "../modules/transactions/transaction.routes.js";
 import paymentRoutes from "../modules/payments/payment.routes.js";
 import withdrawRoutes from "../modules/withdraw/withdraw.routes.js";
 import financeRoutes from "../modules/finance/finance.routes.js";
+import feedbackRoutes from "../modules/feedback/feedback.routes.js";
 
 const router = express.Router();
 
@@ -29,5 +30,6 @@ router.use("/event-me", eventMeRoutes);
 router.use("/ticket", ticketRoutes);
 router.use("/withdraw", withdrawRoutes);
 router.use("/finance", financeRoutes);
+router.use("/feedback", feedbackRoutes);
 
 export default router;
