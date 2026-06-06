@@ -664,35 +664,6 @@ function hasEventPurchase(summary) {
   return summary.purchaseTransactionCount > 0 || summary.soldTicketCount > 0;
 }
 
-function areTicketTypesEquivalent(currentTicketTypes = [], nextTicketTypes = []) {
-  if (currentTicketTypes.length !== nextTicketTypes.length) return false;
-
-  const currentById = new Map(
-    currentTicketTypes
-      .filter((ticket) => ticket.id)
-      .map((ticket) => [ticket.id, ticket])
-  );
-
-  return nextTicketTypes.every((nextTicket, index) => {
-    const currentTicket = nextTicket.id ? currentById.get(nextTicket.id) : currentTicketTypes[index];
-    if (!currentTicket) return false;
-
-    const currentSaleStartAt = normalizeDateTimeValue(currentTicket.sale_start_at, "saleStartAt");
-    const currentSaleEndAt = normalizeDateTimeValue(currentTicket.sale_end_at, "saleEndAt");
-    const nextSaleStartAt = normalizeDateTimeValue(nextTicket.saleStartAt, "saleStartAt");
-    const nextSaleEndAt = normalizeDateTimeValue(nextTicket.saleEndAt, "saleEndAt");
-
-    return (
-      currentTicket.name === nextTicket.name &&
-      Number(currentTicket.price) === Number(nextTicket.price) &&
-      Number(currentTicket.quota) === Number(nextTicket.quota) &&
-      Number(currentTicket.sold) === Number(nextTicket.sold || 0) &&
-      currentSaleStartAt === nextSaleStartAt &&
-      currentSaleEndAt === nextSaleEndAt
-    );
-  });
-}
-
 function buildEventUpdate(payload) {
   const fields = [];
   const values = [];
@@ -742,6 +713,80 @@ function buildEventUpdate(payload) {
   return { fields, values };
 }
 
+async function syncTicketTypes(connection, eventId, ticketTypes) {
+  const [existingRows] = await connection.execute(
+    "SELECT * FROM event_ticket_types WHERE event_id = ?",
+    [eventId]
+  );
+
+  const existingById = new Map(existingRows.map((ticket) => [ticket.id, ticket]));
+  const incomingIds = new Set();
+
+  for (const ticket of ticketTypes) {
+    const existingTicket = ticket.id ? existingById.get(ticket.id) : null;
+
+    if (ticket.id && !existingTicket) {
+      throw new ApiError(400, "Invalid ticket type");
+    }
+
+    const sold = existingTicket ? Number(existingTicket.sold) : 0;
+    if (Number(ticket.quota) < sold) {
+      throw new ApiError(400, `Quota for ticket ${ticket.name} cannot be lower than sold tickets`);
+    }
+
+    if (existingTicket) {
+      incomingIds.add(existingTicket.id);
+      await connection.execute(
+        `UPDATE event_ticket_types
+        SET name = ?, price = ?, quota = ?, sale_start_at = ?, sale_end_at = ?
+        WHERE id = ? AND event_id = ?`,
+        [
+          ticket.name,
+          ticket.price,
+          ticket.quota,
+          ticket.saleStartAt,
+          ticket.saleEndAt,
+          existingTicket.id,
+          eventId
+        ]
+      );
+      continue;
+    }
+
+    await connection.execute(
+      `INSERT INTO event_ticket_types (
+        id,
+        event_id,
+        name,
+        price,
+        quota,
+        sold,
+        sale_start_at,
+        sale_end_at
+      ) VALUES (?, ?, ?, ?, ?, 0, ?, ?)`,
+      [generateId(), eventId, ticket.name, ticket.price, ticket.quota, ticket.saleStartAt, ticket.saleEndAt]
+    );
+  }
+
+  for (const existingTicket of existingRows) {
+    if (incomingIds.has(existingTicket.id)) continue;
+
+    const [itemRows] = await connection.execute(
+      "SELECT COUNT(*) AS total FROM transaction_items WHERE ticket_type_id = ?",
+      [existingTicket.id]
+    );
+
+    if (Number(existingTicket.sold) > 0 || Number(itemRows[0]?.total || 0) > 0) {
+      continue;
+    }
+
+    await connection.execute("DELETE FROM event_ticket_types WHERE id = ? AND event_id = ?", [
+      existingTicket.id,
+      eventId
+    ]);
+  }
+}
+
 async function updateEvent(id, payload, user) {
   const normalizedPayload = normalizeEventDatePayload(payload);
   validateTicketTypes(normalizedPayload.ticketTypes);
@@ -759,17 +804,6 @@ async function updateEvent(id, payload, user) {
     }
   }
 
-  if (normalizedPayload.ticketTypes !== undefined) {
-    const summary = await getEventTransactionSummary(id);
-    if (summary.transactionCount > 0) {
-      if (!areTicketTypesEquivalent(existing.ticket_types, normalizedPayload.ticketTypes)) {
-        throw new ApiError(400, "Ticket types cannot be changed because this event already has transactions");
-      }
-      delete normalizedPayload.ticketTypes;
-      delete normalizedPayload.ticket_types;
-    }
-  }
-
   const { fields, values } = buildEventUpdate(normalizedPayload);
 
   await transaction(async (connection) => {
@@ -778,32 +812,7 @@ async function updateEvent(id, payload, user) {
     }
 
     if (normalizedPayload.ticketTypes !== undefined) {
-      await connection.execute("DELETE FROM event_ticket_types WHERE event_id = ?", [id]);
-      for (const ticket of normalizedPayload.ticketTypes) {
-        const ticketTypeId = generateId();
-        await connection.execute(
-          `INSERT INTO event_ticket_types (
-            id,
-            event_id,
-            name,
-            price,
-            quota,
-            sold,
-            sale_start_at,
-            sale_end_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [
-            ticketTypeId,
-            id,
-            ticket.name,
-            ticket.price,
-            ticket.quota,
-            ticket.sold || 0,
-            ticket.saleStartAt,
-            ticket.saleEndAt
-          ]
-        );
-      }
+      await syncTicketTypes(connection, id, normalizedPayload.ticketTypes);
     }
   });
 

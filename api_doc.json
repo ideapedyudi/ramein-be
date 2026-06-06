@@ -1205,7 +1205,7 @@
               ]
             }
           },
-          "description": "Owner event atau admin bisa mengubah event. Body bisa camelCase atau snake_case dari response detail. ticketTypes/ticket_types hanya bisa diganti selama event belum memiliki transaksi."
+          "description": "Owner event atau admin bisa mengubah event. Body bisa camelCase atau snake_case dari response detail. ticketTypes/ticket_types tetap bisa diedit walaupun event sudah memiliki transaksi; sold existing tidak ditimpa dan ticket yang sudah dipakai transaksi tidak dihapus."
         },
         {
           "name": "PUT Update Event (Owner/Admin)",
@@ -1236,7 +1236,7 @@
               ]
             }
           },
-          "description": "Alias update event. Owner event atau admin bisa mengubah event. Body bisa camelCase atau snake_case dari response detail. ticketTypes/ticket_types hanya bisa diganti selama event belum memiliki transaksi."
+          "description": "Alias update event. Owner event atau admin bisa mengubah event. Body bisa camelCase atau snake_case dari response detail. ticketTypes/ticket_types tetap bisa diedit walaupun event sudah memiliki transaksi; sold existing tidak ditimpa dan ticket yang sudah dipakai transaksi tidak dihapus."
         },
         {
           "name": "DELETE Event (Owner/Admin)",
