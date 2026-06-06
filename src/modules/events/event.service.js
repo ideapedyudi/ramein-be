@@ -55,6 +55,13 @@ function getPayloadValue(payload, camelKey, snakeKey) {
   return payload[snakeKey];
 }
 
+function setPayloadAlias(normalized, payload, camelKey, snakeKey) {
+  const value = getPayloadValue(payload, camelKey, snakeKey);
+  if (value === undefined) return;
+  normalized[camelKey] = value;
+  normalized[snakeKey] = value;
+}
+
 function padDatePart(value) {
   return String(value).padStart(2, "0");
 }
@@ -93,6 +100,16 @@ function normalizeDateTimeValue(value, fieldName) {
 function normalizeEventDatePayload(payload) {
   const normalized = { ...payload };
 
+  setPayloadAlias(normalized, payload, "categoryId", "category_id");
+  setPayloadAlias(normalized, payload, "organizerId", "organizer_id");
+  setPayloadAlias(normalized, payload, "cityId", "city_id");
+  setPayloadAlias(normalized, payload, "addressDetail", "address_detail");
+  setPayloadAlias(normalized, payload, "eventType", "event_type");
+  setPayloadAlias(normalized, payload, "labelOnline", "label_online");
+  setPayloadAlias(normalized, payload, "urlOnline", "url_online");
+  setPayloadAlias(normalized, payload, "paymentType", "payment_type");
+  setPayloadAlias(normalized, payload, "isPublished", "is_published");
+
   const startDateTime = getPayloadValue(payload, "startDateTime", "start_datetime");
   if (startDateTime !== undefined) {
     const value = normalizeDateTimeValue(startDateTime, "startDateTime");
@@ -107,23 +124,28 @@ function normalizeEventDatePayload(payload) {
     normalized.end_datetime = value;
   }
 
-  if (Array.isArray(payload.ticketTypes)) {
-    normalized.ticketTypes = payload.ticketTypes.map((ticket, index) => {
+  const ticketTypes = getPayloadValue(payload, "ticketTypes", "ticket_types");
+  if (Array.isArray(ticketTypes)) {
+    normalized.ticketTypes = ticketTypes.map((ticket, index) => {
       const saleStartAt = getPayloadValue(ticket, "saleStartAt", "sale_start_at");
       const saleEndAt = getPayloadValue(ticket, "saleEndAt", "sale_end_at");
+      const normalizedTicket = { ...ticket };
 
-      return {
-        ...ticket,
-        saleStartAt:
-          saleStartAt === undefined
-            ? saleStartAt
-            : normalizeDateTimeValue(saleStartAt, `ticketTypes[${index}].saleStartAt`),
-        saleEndAt:
-          saleEndAt === undefined
-            ? saleEndAt
-            : normalizeDateTimeValue(saleEndAt, `ticketTypes[${index}].saleEndAt`)
-      };
+      if (saleStartAt !== undefined) {
+        const value = normalizeDateTimeValue(saleStartAt, `ticketTypes[${index}].saleStartAt`);
+        normalizedTicket.saleStartAt = value;
+        normalizedTicket.sale_start_at = value;
+      }
+
+      if (saleEndAt !== undefined) {
+        const value = normalizeDateTimeValue(saleEndAt, `ticketTypes[${index}].saleEndAt`);
+        normalizedTicket.saleEndAt = value;
+        normalizedTicket.sale_end_at = value;
+      }
+
+      return normalizedTicket;
     });
+    normalized.ticket_types = normalized.ticketTypes;
   }
 
   return normalized;
@@ -171,6 +193,34 @@ function normalizeTicketRow(row) {
     created_at: row.created_at,
     updated_at: row.updated_at
   };
+}
+
+function validateTicketTypes(ticketTypes) {
+  if (ticketTypes === undefined) return;
+  if (!Array.isArray(ticketTypes) || ticketTypes.length === 0) {
+    throw new ApiError(400, "ticketTypes must contain at least one ticket type");
+  }
+
+  for (const [index, ticket] of ticketTypes.entries()) {
+    if (!ticket.name) {
+      throw new ApiError(400, `ticketTypes[${index}].name is required`);
+    }
+    if (ticket.price === undefined || Number(ticket.price) < 0 || Number.isNaN(Number(ticket.price))) {
+      throw new ApiError(400, `ticketTypes[${index}].price is invalid`);
+    }
+    if (!Number.isInteger(Number(ticket.quota)) || Number(ticket.quota) < 0) {
+      throw new ApiError(400, `ticketTypes[${index}].quota is invalid`);
+    }
+    if (ticket.sold !== undefined && (!Number.isInteger(Number(ticket.sold)) || Number(ticket.sold) < 0)) {
+      throw new ApiError(400, `ticketTypes[${index}].sold is invalid`);
+    }
+    if (!ticket.saleStartAt) {
+      throw new ApiError(400, `ticketTypes[${index}].saleStartAt is required`);
+    }
+    if (!ticket.saleEndAt) {
+      throw new ApiError(400, `ticketTypes[${index}].saleEndAt is required`);
+    }
+  }
 }
 
 async function attachTicketTypes(events) {
@@ -491,6 +541,7 @@ async function listInterestEvents(queryParams = {}) {
 
 async function createEvent(payload, user) {
   const normalizedPayload = normalizeEventDatePayload(payload);
+  validateTicketTypes(normalizedPayload.ticketTypes);
   const organizerRows = await query(
     "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
     [normalizedPayload.organizerId]
@@ -584,17 +635,80 @@ function canManageEvent(event, user) {
   return user.role === "admin" || event.created_by === user.id;
 }
 
-function buildEventUpdate(payload, user) {
+async function getEventTransactionSummary(eventId) {
+  const rows = await query(
+    `SELECT
+      COUNT(*) AS transaction_count,
+      SUM(CASE WHEN status IN ('paid', 'refunded') THEN 1 ELSE 0 END) AS purchase_transaction_count
+    FROM transactions
+    WHERE event_id = ?`,
+    [eventId]
+  );
+
+  const ticketRows = await query(
+    `SELECT
+      COALESCE(SUM(sold), 0) AS sold_ticket_count
+    FROM event_ticket_types
+    WHERE event_id = ?`,
+    [eventId]
+  );
+
+  return {
+    transactionCount: Number(rows[0]?.transaction_count || 0),
+    purchaseTransactionCount: Number(rows[0]?.purchase_transaction_count || 0),
+    soldTicketCount: Number(ticketRows[0]?.sold_ticket_count || 0)
+  };
+}
+
+function hasEventPurchase(summary) {
+  return summary.purchaseTransactionCount > 0 || summary.soldTicketCount > 0;
+}
+
+function areTicketTypesEquivalent(currentTicketTypes = [], nextTicketTypes = []) {
+  if (currentTicketTypes.length !== nextTicketTypes.length) return false;
+
+  const currentById = new Map(
+    currentTicketTypes
+      .filter((ticket) => ticket.id)
+      .map((ticket) => [ticket.id, ticket])
+  );
+
+  return nextTicketTypes.every((nextTicket, index) => {
+    const currentTicket = nextTicket.id ? currentById.get(nextTicket.id) : currentTicketTypes[index];
+    if (!currentTicket) return false;
+
+    const currentSaleStartAt = normalizeDateTimeValue(currentTicket.sale_start_at, "saleStartAt");
+    const currentSaleEndAt = normalizeDateTimeValue(currentTicket.sale_end_at, "saleEndAt");
+    const nextSaleStartAt = normalizeDateTimeValue(nextTicket.saleStartAt, "saleStartAt");
+    const nextSaleEndAt = normalizeDateTimeValue(nextTicket.saleEndAt, "saleEndAt");
+
+    return (
+      currentTicket.name === nextTicket.name &&
+      Number(currentTicket.price) === Number(nextTicket.price) &&
+      Number(currentTicket.quota) === Number(nextTicket.quota) &&
+      Number(currentTicket.sold) === Number(nextTicket.sold || 0) &&
+      currentSaleStartAt === nextSaleStartAt &&
+      currentSaleEndAt === nextSaleEndAt
+    );
+  });
+}
+
+function buildEventUpdate(payload) {
   const fields = [];
   const values = [];
+  const usedColumns = new Set();
 
   const map = {
     title: "title",
     description: "description",
     categoryId: "category_id",
+    category_id: "category_id",
     organizerId: "organizer_id",
+    organizer_id: "organizer_id",
     cityId: "city_id",
+    city_id: "city_id",
     addressDetail: "address_detail",
+    address_detail: "address_detail",
     banner: "banner",
     eventType: "event_type",
     event_type: "event_type",
@@ -605,15 +719,19 @@ function buildEventUpdate(payload, user) {
     paymentType: "payment_type",
     payment_type: "payment_type",
     startDateTime: "start_datetime",
+    start_datetime: "start_datetime",
     endDateTime: "end_datetime",
+    end_datetime: "end_datetime",
     status: "status",
-    isPublished: "is_published"
+    isPublished: "is_published",
+    is_published: "is_published"
   };
 
   for (const [key, column] of Object.entries(map)) {
-    if (payload[key] !== undefined) {
+    if (payload[key] !== undefined && !usedColumns.has(column)) {
       fields.push(`${column} = ?`);
-      if (key === "isPublished") {
+      usedColumns.add(column);
+      if (key === "isPublished" || key === "is_published") {
         values.push(payload[key] ? 1 : 0);
       } else {
         values.push(payload[key]);
@@ -626,6 +744,7 @@ function buildEventUpdate(payload, user) {
 
 async function updateEvent(id, payload, user) {
   const normalizedPayload = normalizeEventDatePayload(payload);
+  validateTicketTypes(normalizedPayload.ticketTypes);
   const existing = await getEventById(id);
   if (!canManageEvent(existing, user)) throw new ApiError(403, "Forbidden");
 
@@ -640,7 +759,18 @@ async function updateEvent(id, payload, user) {
     }
   }
 
-  const { fields, values } = buildEventUpdate(normalizedPayload, user);
+  if (normalizedPayload.ticketTypes !== undefined) {
+    const summary = await getEventTransactionSummary(id);
+    if (summary.transactionCount > 0) {
+      if (!areTicketTypesEquivalent(existing.ticket_types, normalizedPayload.ticketTypes)) {
+        throw new ApiError(400, "Ticket types cannot be changed because this event already has transactions");
+      }
+      delete normalizedPayload.ticketTypes;
+      delete normalizedPayload.ticket_types;
+    }
+  }
+
+  const { fields, values } = buildEventUpdate(normalizedPayload);
 
   await transaction(async (connection) => {
     if (fields.length > 0) {
@@ -683,7 +813,16 @@ async function updateEvent(id, payload, user) {
 async function deleteEvent(id, user) {
   const event = await getEventById(id);
   if (!canManageEvent(event, user)) throw new ApiError(403, "Forbidden");
-  await query("DELETE FROM events WHERE id = ?", [id]);
+
+  const summary = await getEventTransactionSummary(id);
+  if (hasEventPurchase(summary)) {
+    throw new ApiError(400, "Event cannot be deleted because it already has purchases");
+  }
+
+  await transaction(async (connection) => {
+    await connection.execute("DELETE FROM transactions WHERE event_id = ?", [id]);
+    await connection.execute("DELETE FROM events WHERE id = ?", [id]);
+  });
 }
 
 export default {

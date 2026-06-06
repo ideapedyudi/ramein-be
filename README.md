@@ -41,13 +41,14 @@ npm run dev
 ## Endpoint Inti
 
 - Auth: `/auth/register`, `/auth/login`, `/auth/refresh-token`, `/auth/logout`
-- User: `/users/me`, `/users/admin/list`
+- User: `/users/me`, `/users/admin/list`, `/users/admin/admins`, `/users/admin/users`
 - Master data: `/master/categories`, `/master/cities`, `/master/organizers`
 - Event: `/events`, `/events/explore`, `/events/interest`, `/events/trending`, `/events/recommended`, `/events/:id`
 
 Semua endpoint `/events` memerlukan token login.
 `/events/trending` menampilkan 8 event terbaru yang baru dibuat.
 `/events/recommended` default ke kategori `Konser` jika tidak ada parameter minat/category yang dikirim.
+`PATCH /events/:id` atau `PUT /events/:id` bisa dilakukan owner event atau admin dan menerima body camelCase atau snake_case dari response detail. `DELETE /events/:id` hanya bisa dilakukan owner event atau admin jika event belum memiliki pembelian tiket.
 - Transaction: `/transactions`, `/transactions/me`, `/transactions/admin/all`, `/transactions/statistic/event/:event_id`
 - Withdraw: `/withdraw`, `/withdraw/me`, `/withdraw/all`, `/withdraw/status`
 - Finance: `/finance/:published_by`, `/finance/:published_by/:organizer_id`
