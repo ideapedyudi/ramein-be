@@ -49,6 +49,14 @@
     {
       "key": "withdraw_id",
       "value": ""
+    },
+    {
+      "key": "user_id",
+      "value": ""
+    },
+    {
+      "key": "feedback_id",
+      "value": ""
     }
   ],
   "item": [
@@ -166,6 +174,9 @@
                   "const json = pm.response.json();",
                   "if (json?.data?.accessToken) {",
                   "  pm.collectionVariables.set('token_user', json.data.accessToken);",
+                  "}",
+                  "if (json?.data?.user?.id) {",
+                  "  pm.collectionVariables.set('user_id', json.data.user.id);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -508,6 +519,110 @@
           }
         },
         {
+          "name": "GET Category Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/master/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "categories",
+                "{{category_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH Category (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "categories",
+                "{{category_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Music Updated\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT Category (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "categories",
+                "{{category_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Music\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE Category (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/categories/{{category_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "categories",
+                "{{category_id}}"
+              ]
+            }
+          },
+          "description": "Deactivate category dengan mengubah isActive menjadi false."
+        },
+        {
           "name": "GET Cities",
           "request": {
             "method": "GET",
@@ -525,6 +640,110 @@
           }
         },
         {
+          "name": "GET City Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/master/cities/{{city_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "cities",
+                "{{city_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH City (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/cities/{{city_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "cities",
+                "{{city_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jakarta Updated\",\n  \"provinsi\": \"DKI Jakarta\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT City (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/cities/{{city_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "cities",
+                "{{city_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jakarta\",\n  \"provinsi\": \"DKI Jakarta\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE City (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/cities/{{city_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "cities",
+                "{{city_id}}"
+              ]
+            }
+          },
+          "description": "Deactivate city dengan mengubah isActive menjadi false."
+        },
+        {
           "name": "GET Organizers",
           "request": {
             "method": "GET",
@@ -540,6 +759,110 @@
               ]
             }
           }
+        },
+        {
+          "name": "GET Organizer Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/master/organizers/{{organizer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "organizers",
+                "{{organizer_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "PATCH Organizer (Admin)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/organizers/{{organizer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "organizers",
+                "{{organizer_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Promotor Ramein Updated\",\n  \"description\": \"Organizer resmi konser\",\n  \"contactName\": \"Tim Promotor\",\n  \"contactEmail\": \"promotor@demo.com\",\n  \"contactPhone\": \"08123456789\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "PUT Organizer (Admin)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/organizers/{{organizer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "organizers",
+                "{{organizer_id}}"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Promotor Ramein\",\n  \"description\": \"Organizer resmi konser\",\n  \"contactName\": \"Tim Promotor\",\n  \"contactEmail\": \"promotor@demo.com\",\n  \"contactPhone\": \"08123456789\",\n  \"isActive\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "DELETE Organizer (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/master/organizers/{{organizer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "master",
+                "organizers",
+                "{{organizer_id}}"
+              ]
+            }
+          },
+          "description": "Deactivate organizer dengan mengubah isActive menjadi false."
         }
       ]
     },
@@ -604,6 +927,96 @@
               ]
             }
           }
+        },
+        {
+          "name": "GET My Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/events/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "events",
+                "me"
+              ]
+            }
+          },
+          "description": "List event milik user login. Query opsional mengikuti GET Event List: status, organizerId, search."
+        },
+        {
+          "name": "GET Purchased Events by User ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/events/me/purchased?userId={{user_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "events",
+                "me",
+                "purchased"
+              ],
+              "query": [
+                {
+                  "key": "userId",
+                  "value": "{{user_id}}"
+                }
+              ]
+            }
+          },
+          "description": "List event yang pernah dibeli user tertentu. userId wajib UUID."
+        },
+        {
+          "name": "GET Trending Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/events/trending",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "events",
+                "trending"
+              ]
+            }
+          },
+          "description": "List event public terbaru, limit 8."
+        },
+        {
+          "name": "GET Recommended Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/events/recommended?interest=Konser",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "events",
+                "recommended"
+              ],
+              "query": [
+                {
+                  "key": "interest",
+                  "value": "Konser"
+                }
+              ]
+            }
+          },
+          "description": "Rekomendasi event public berdasarkan interest/category. Default category: Konser."
         },
         {
           "name": "GET Explore Events",
@@ -1218,6 +1631,53 @@
           "description": "List finance untuk event published_by=admin. Admin only."
         },
         {
+          "name": "GET Finance by Published By User (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/finance/user",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "finance",
+                "user"
+              ]
+            }
+          },
+          "description": "List finance untuk event published_by=user. Admin only."
+        },
+        {
+          "name": "GET Finance by Published By User and Organizer (Admin)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/finance/user/{{organizer_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "finance",
+                "user",
+                "{{organizer_id}}"
+              ]
+            }
+          },
+          "description": "List finance dengan filter published_by=user dan organizer_id. Admin only."
+        },
+        {
           "name": "GET Finance by Published By and Organizer (Admin)",
           "request": {
             "method": "GET",
@@ -1240,6 +1700,168 @@
             }
           },
           "description": "List finance dengan filter published_by dan organizer_id. Jika organizer_id tidak dipakai, gunakan endpoint /finance/:published_by."
+        }
+      ]
+    },
+    {
+      "name": "Event Me",
+      "item": [
+        {
+          "name": "GET My Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/event-me/me",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "event-me",
+                "me"
+              ]
+            }
+          },
+          "description": "Alias endpoint untuk list event milik user login."
+        },
+        {
+          "name": "GET My Purchased Events",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/event-me/me/purchased",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "event-me",
+                "me",
+                "purchased"
+              ]
+            }
+          },
+          "description": "List event yang pernah dibeli user login berdasarkan transaksi paid."
+        }
+      ]
+    },
+    {
+      "name": "Feedback",
+      "item": [
+        {
+          "name": "GET Feedback List",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedback?rating=Puas",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedback"
+              ],
+              "query": [
+                {
+                  "key": "rating",
+                  "value": "Puas"
+                }
+              ]
+            }
+          },
+          "description": "Query rating opsional. Nilai rating: Sangat Puas, Puas, Cukup Puas, Tidak Puas, Sangat Tidak Puas."
+        },
+        {
+          "name": "POST Create Feedback",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_user}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feedback",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedback"
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"rating\": \"Puas\",\n  \"review\": \"Aplikasinya mudah dipakai.\"\n}"
+            }
+          },
+          "description": "Membuat feedback. Rating wajib salah satu dari opsi yang tersedia, review opsional.",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.id) pm.collectionVariables.set('feedback_id', json.data.id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET Feedback Detail",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/feedback/{{feedback_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedback",
+                "{{feedback_id}}"
+              ]
+            }
+          }
+        },
+        {
+          "name": "DELETE Feedback (Admin)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/feedback/{{feedback_id}}",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "feedback",
+                "{{feedback_id}}"
+              ]
+            }
+          },
+          "description": "Admin only. Menghapus feedback berdasarkan id."
         }
       ]
     }
