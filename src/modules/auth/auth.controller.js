@@ -27,6 +27,11 @@ const login = asyncHandler(async (req, res) => {
   return successResponse(res, 200, "Login success", result);
 });
 
+const googleAuth = asyncHandler(async (req, res) => {
+  const result = await authService.googleAuth(req.body);
+  return successResponse(res, result.isNewUser ? 201 : 200, "Google auth success", result);
+});
+
 const refreshToken = asyncHandler(async (req, res) => {
   const result = await authService.refreshToken(req.body.refreshToken);
   return successResponse(res, 200, "Token refreshed", result);
@@ -40,6 +45,7 @@ export default {
   createFirstUser,
   register,
   login,
+  googleAuth,
   refreshToken,
   logout
 };

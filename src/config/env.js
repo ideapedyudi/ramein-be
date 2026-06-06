@@ -22,6 +22,7 @@ const env = {
   jwtRefreshSecret: readEnv("JWT_REFRESH_SECRET", "refresh-secret-dev"),
   jwtAccessExpiresIn: readEnv("JWT_ACCESS_EXPIRES_IN", "15m"),
   jwtRefreshExpiresIn: readEnv("JWT_REFRESH_EXPIRES_IN", "7d"),
+  googleClientId: readEnv("GOOGLE_CLIENT_ID"),
   midtransServerKey: readEnv("MIDTRANS_SERVER_KEY"),
   midtransClientKey: readEnv("MIDTRANS_CLIENT_KEY"),
   midtransIsProduction: readEnv("MIDTRANS_IS_PRODUCTION", "false").toLowerCase() === "true",

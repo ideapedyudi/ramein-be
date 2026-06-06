@@ -40,7 +40,7 @@ npm run dev
 
 ## Endpoint Inti
 
-- Auth: `/auth/register`, `/auth/login`, `/auth/refresh-token`, `/auth/logout`
+- Auth: `/auth/register`, `/auth/login`, `/auth/google`, `/auth/google/register`, `/auth/google/login`, `/auth/refresh-token`, `/auth/logout`
 - User: `/users/me`, `/users/admin/list`, `/users/admin/admins`, `/users/admin/users`
 - Master data: `/master/categories`, `/master/cities`, `/master/organizers`
 - Event: `/events`, `/events/explore`, `/events/interest`, `/events/trending`, `/events/recommended`, `/events/:id`

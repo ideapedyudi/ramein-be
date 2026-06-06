@@ -248,6 +248,50 @@
           }
         },
         {
+          "name": "POST Google Auth (Register/Login User)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const json = pm.response.json();",
+                  "if (json?.data?.accessToken) {",
+                  "  pm.collectionVariables.set('token_user', json.data.accessToken);",
+                  "}",
+                  "if (json?.data?.user?.id) {",
+                  "  pm.collectionVariables.set('user_id', json.data.user.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"credential\": \"ISI_GOOGLE_ID_TOKEN_DARI_FRONTEND\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/google",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "auth",
+                "google"
+              ]
+            }
+          },
+          "description": "Verifikasi Google ID token, lalu login user jika sudah ada atau register user baru jika belum ada. Bisa kirim credential atau idToken. Endpoint alias: /auth/google/register dan /auth/google/login."
+        },
+        {
           "name": "POST Refresh Token",
           "request": {
             "method": "POST",

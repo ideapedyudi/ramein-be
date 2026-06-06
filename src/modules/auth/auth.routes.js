@@ -5,6 +5,16 @@ import authController from "./auth.controller.js";
 
 const router = express.Router();
 
+const googleAuthValidators = [
+  body().custom((value) => {
+    if (value?.idToken || value?.credential) return true;
+    throw new Error("idToken or credential is required");
+  }),
+  body("idToken").optional().isString(),
+  body("credential").optional().isString(),
+  validateRequest
+];
+
 router.post(
   "/first-user",
   [
@@ -32,6 +42,10 @@ router.post(
   [body("email").isEmail(), body("password").notEmpty(), validateRequest],
   authController.login
 );
+
+router.post("/google", googleAuthValidators, authController.googleAuth);
+router.post("/google/register", googleAuthValidators, authController.googleAuth);
+router.post("/google/login", googleAuthValidators, authController.googleAuth);
 
 router.post(
   "/refresh-token",
