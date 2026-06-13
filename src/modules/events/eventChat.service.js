@@ -231,6 +231,69 @@ function formatTicketSummary(ticketTypes) {
     .join("\n");
 }
 
+function getCheapestTicketLabel(ticketTypes) {
+  if (!Array.isArray(ticketTypes) || ticketTypes.length === 0) {
+    return "harga tiketnya belum tersedia";
+  }
+
+  const paidTickets = ticketTypes.filter((ticket) => Number(ticket.price) > 0);
+  if (paidTickets.length === 0) {
+    return "event ini gratis";
+  }
+
+  const cheapestTicket = paidTickets.reduce((cheapest, ticket) => (
+    Number(ticket.price) < Number(cheapest.price) ? ticket : cheapest
+  ), paidTickets[0]);
+
+  return `harga tiketnya mulai dari ${formatRupiah(cheapestTicket.price)}`;
+}
+
+function summarizeDescription(description) {
+  const cleanDescription = String(description || "").replace(/\s+/g, " ").trim();
+  if (!cleanDescription) return "Belum ada deskripsi detail untuk event ini.";
+
+  const sentences = cleanDescription
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean);
+
+  const summary = sentences.length > 0 ? sentences.slice(0, 2).join(" ") : cleanDescription;
+  return summary.length > 260 ? `${summary.slice(0, 257).trim()}...` : summary;
+}
+
+function buildNaturalEventDetailReply(event) {
+  const ticketSummary = formatTicketSummary(event.ticket_types);
+  const shortDescription = summarizeDescription(event.description);
+  const cheapestTicket = getCheapestTicketLabel(event.ticket_types);
+  const startDate = formatDateTimeForDisplay(event.start_datetime);
+  const endDate = formatDateTimeForDisplay(event.end_datetime);
+  const location = `${event.city_name}, ${event.address_detail}`;
+  const onlineInfo = event.label_online ? ` Kalau mau akses online, tersedia lewat ${event.label_online}${event.url_online ? ` di ${event.url_online}` : ""}.` : "";
+  const variants = [
+    [
+      `${event.title} adalah event ${event.category_name} dari ${event.organizer_name}.`,
+      `Secara singkat, event ini membahas/menawarkan: ${shortDescription}`,
+      `Acaranya dijadwalkan mulai ${startDate} sampai ${endDate} di ${location}.${onlineInfo}`,
+      `Untuk tiket, ${cheapestTicket}. Detail pilihannya:\n${ticketSummary}`
+    ],
+    [
+      `Untuk ${event.title}, ini termasuk event ${event.category_name} yang diselenggarakan oleh ${event.organizer_name}.`,
+      `${shortDescription}`,
+      `Jadwalnya mulai ${startDate}, selesai ${endDate}, dan lokasinya di ${location}.${onlineInfo}`,
+      `Soal harga, ${cheapestTicket}. Berikut daftar tiketnya:\n${ticketSummary}`
+    ],
+    [
+      `Event ${event.title} cocok kamu cek kalau tertarik dengan kategori ${event.category_name}.`,
+      `Ringkasnya: ${shortDescription}`,
+      `Event ini berlangsung pada ${startDate} sampai ${endDate}. Lokasinya ada di ${location}.${onlineInfo}`,
+      `Harga tiket: ${cheapestTicket}. Rinciannya:\n${ticketSummary}`
+    ]
+  ];
+
+  const selectedVariant = variants[Math.floor(Math.random() * variants.length)];
+  return selectedVariant.join("\n");
+}
+
 function isGreetingOnly(message) {
   const normalized = sanitizeText(message);
   if (!normalized) return false;
@@ -543,19 +606,7 @@ function buildFallbackReply({ intent, visitorName, monthLabel, events }) {
     }
 
     const event = events[0];
-    const onlineInfo = event.label_online ? `\nAkses online: ${event.label_online}${event.url_online ? ` (${event.url_online})` : ""}` : "";
-
-    return [
-      `Detail event ${event.title}:`,
-      `Deskripsi: ${event.description}`,
-      `Kategori: ${event.category_name}`,
-      `Penyelenggara: ${event.organizer_name}`,
-      `Lokasi: ${event.city_name}, ${event.address_detail}`,
-      `Mulai: ${formatDateTimeForDisplay(event.start_datetime)}`,
-      `Selesai: ${formatDateTimeForDisplay(event.end_datetime)}`,
-      `Harga tiket:`,
-      formatTicketSummary(event.ticket_types) + onlineInfo
-    ].join("\n");
+    return buildNaturalEventDetailReply(event);
   }
 
   if (events.length === 0) {
@@ -585,7 +636,7 @@ async function requestOpenRouterReply(payload) {
       },
       body: JSON.stringify({
         model: env.openRouterModel,
-        temperature: 0.2,
+        temperature: payload.intent === "event_detail" ? 0.75 : 0.2,
         max_tokens: 250,
         response_format: {
           type: "json_object"
@@ -602,7 +653,8 @@ async function requestOpenRouterReply(payload) {
               "Untuk greeting, kenalkan diri sebagai Mimin yang membantu menemukan event.",
               "Jika user bertanya kemampuan Anda, jelaskan hanya 3 kemampuan yang tersedia: sapaan, daftar event per bulan, dan detail event berdasarkan nama.",
               "Untuk daftar event bulanan, tampilkan nama-nama event dari data yang diberikan.",
-              "Untuk detail event, jelaskan deskripsi, waktu, lokasi, dan harga tiket hanya dari data yang diberikan.",
+              "Untuk detail event, rangkum dengan gaya natural seperti asisten chat, jangan sekadar menyalin field deskripsi mentah.",
+              "Boleh parafrase dan variasikan gaya jawaban, tetapi fakta harus tetap hanya dari data event yang diberikan.",
               "Jika daftar event kosong, katakan belum ada event publik pada bulan tersebut."
             ].join(" ")
           },
