@@ -32,6 +32,12 @@ router.get(
   controller.getFeedbackCreatorByCreatorId
 );
 
+router.get(
+  "/:id",
+  [param("id").isUUID(), validateRequest],
+  controller.getFeedbackCreatorDetail
+);
+
 router.post(
   "/",
   authenticate,
@@ -59,6 +65,51 @@ router.post(
     validateRequest
   ],
   controller.createFeedbackCreator
+);
+
+router.patch(
+  "/:id",
+  authenticate,
+  [
+    param("id").isUUID(),
+    body("rating").optional().isInt({ min: 1, max: 5 }),
+    body("review").optional({ nullable: true }).isString(),
+    body().custom((value) => {
+      if (value.rating === undefined && value.review === undefined) {
+        throw new Error("rating or review is required");
+      }
+
+      return true;
+    }),
+    validateRequest
+  ],
+  controller.updateFeedbackCreator
+);
+
+router.put(
+  "/:id",
+  authenticate,
+  [
+    param("id").isUUID(),
+    body("rating").optional().isInt({ min: 1, max: 5 }),
+    body("review").optional({ nullable: true }).isString(),
+    body().custom((value) => {
+      if (value.rating === undefined && value.review === undefined) {
+        throw new Error("rating or review is required");
+      }
+
+      return true;
+    }),
+    validateRequest
+  ],
+  controller.updateFeedbackCreator
+);
+
+router.delete(
+  "/:id",
+  authenticate,
+  [param("id").isUUID(), validateRequest],
+  controller.removeFeedbackCreator
 );
 
 export default router;

@@ -9,6 +9,28 @@ function getPayloadValue(payload, camelKey, snakeKey) {
   return payload[snakeKey];
 }
 
+function canManageFeedbackCreator(feedback, user) {
+  return user.role === "admin" || feedback.createdBy.id === user.id;
+}
+
+async function fetchFeedbackCreatorRows(whereClause, values) {
+  return query(
+    `SELECT
+      fc.*,
+      reviewer.name AS reviewer_name,
+      reviewer.email AS reviewer_email,
+      o.name AS organizer_name,
+      o.description AS organizer_description,
+      cu.name AS creator_user_name
+    FROM feedback_creator fc
+    JOIN users reviewer ON reviewer.id = fc.created_by
+    LEFT JOIN organizers o ON fc.creator_type = 'organizer' AND o.id = fc.creator_id
+    LEFT JOIN users cu ON fc.creator_type = 'user' AND cu.id = fc.creator_id
+    ${whereClause}`,
+    values
+  );
+}
+
 function mapFeedbackCreatorRow(row) {
   return {
     id: row.id,
@@ -86,24 +108,7 @@ async function createFeedbackCreator(payload, user) {
     [feedbackId, rating, payload.review ?? null, creatorType, creatorId, user.id]
   );
 
-  const rows = await query(
-    `SELECT
-      fc.*,
-      reviewer.name AS reviewer_name,
-      reviewer.email AS reviewer_email,
-      o.name AS organizer_name,
-      o.description AS organizer_description,
-      cu.name AS creator_user_name
-    FROM feedback_creator fc
-    JOIN users reviewer ON reviewer.id = fc.created_by
-    LEFT JOIN organizers o ON fc.creator_type = 'organizer' AND o.id = fc.creator_id
-    LEFT JOIN users cu ON fc.creator_type = 'user' AND cu.id = fc.creator_id
-    WHERE fc.id = ?
-    LIMIT 1`,
-    [feedbackId]
-  );
-
-  return mapFeedbackCreatorRow(rows[0]);
+  return getFeedbackCreatorDetail(feedbackId);
 }
 
 async function getFeedbackCreatorList(filter = {}) {
@@ -128,22 +133,7 @@ async function getFeedbackCreatorList(filter = {}) {
   }
 
   const where = clauses.length > 0 ? `WHERE ${clauses.join(" AND ")}` : "";
-  const rows = await query(
-    `SELECT
-      fc.*,
-      reviewer.name AS reviewer_name,
-      reviewer.email AS reviewer_email,
-      o.name AS organizer_name,
-      o.description AS organizer_description,
-      cu.name AS creator_user_name
-    FROM feedback_creator fc
-    JOIN users reviewer ON reviewer.id = fc.created_by
-    LEFT JOIN organizers o ON fc.creator_type = 'organizer' AND o.id = fc.creator_id
-    LEFT JOIN users cu ON fc.creator_type = 'user' AND cu.id = fc.creator_id
-    ${where}
-    ORDER BY fc.created_at DESC, fc.id DESC`,
-    values
-  );
+  const rows = await fetchFeedbackCreatorRows(`${where} ORDER BY fc.created_at DESC, fc.id DESC`, values);
 
   return rows.map(mapFeedbackCreatorRow);
 }
@@ -157,8 +147,62 @@ async function getFeedbackCreatorByCreatorId(creatorId, creatorType) {
   return getFeedbackCreatorList(filter);
 }
 
+async function getFeedbackCreatorDetail(id) {
+  const rows = await fetchFeedbackCreatorRows("WHERE fc.id = ? LIMIT 1", [id]);
+  const feedback = rows[0];
+
+  if (!feedback) {
+    throw new ApiError(404, "Creator feedback not found");
+  }
+
+  return mapFeedbackCreatorRow(feedback);
+}
+
+async function updateFeedbackCreator(id, payload, user) {
+  const feedback = await getFeedbackCreatorDetail(id);
+  if (!canManageFeedbackCreator(feedback, user)) {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  const fields = [];
+  const values = [];
+
+  if (payload.rating !== undefined) {
+    const rating = Number(payload.rating);
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+      throw new ApiError(400, "Invalid rating");
+    }
+    fields.push("rating = ?");
+    values.push(rating);
+  }
+
+  if (payload.review !== undefined) {
+    fields.push("review = ?");
+    values.push(payload.review ?? null);
+  }
+
+  if (fields.length > 0) {
+    await query(`UPDATE feedback_creator SET ${fields.join(", ")} WHERE id = ?`, [...values, id]);
+  }
+
+  return getFeedbackCreatorDetail(id);
+}
+
+async function removeFeedbackCreator(id, user) {
+  const feedback = await getFeedbackCreatorDetail(id);
+  if (!canManageFeedbackCreator(feedback, user)) {
+    throw new ApiError(403, "Forbidden");
+  }
+
+  await query("DELETE FROM feedback_creator WHERE id = ?", [id]);
+  return feedback;
+}
+
 export default {
   createFeedbackCreator,
   getFeedbackCreatorList,
-  getFeedbackCreatorByCreatorId
+  getFeedbackCreatorByCreatorId,
+  getFeedbackCreatorDetail,
+  updateFeedbackCreator,
+  removeFeedbackCreator
 };

@@ -15,13 +15,31 @@ const getFeedbackCreatorList = asyncHandler(async (req, res) => {
 const getFeedbackCreatorByCreatorId = asyncHandler(async (req, res) => {
   const data = await feedbackCreatorService.getFeedbackCreatorByCreatorId(
     req.params.creatorId,
-    req.query.creatorType
+    req.query.creatorType ?? req.query.creator_type
   );
   return successResponse(res, 200, "Creator feedback list", data);
+});
+
+const getFeedbackCreatorDetail = asyncHandler(async (req, res) => {
+  const data = await feedbackCreatorService.getFeedbackCreatorDetail(req.params.id);
+  return successResponse(res, 200, "Creator feedback detail", data);
+});
+
+const updateFeedbackCreator = asyncHandler(async (req, res) => {
+  const data = await feedbackCreatorService.updateFeedbackCreator(req.params.id, req.body, req.user);
+  return successResponse(res, 200, "Creator feedback updated", data);
+});
+
+const removeFeedbackCreator = asyncHandler(async (req, res) => {
+  const data = await feedbackCreatorService.removeFeedbackCreator(req.params.id, req.user);
+  return successResponse(res, 200, "Creator feedback deleted", data);
 });
 
 export default {
   createFeedbackCreator,
   getFeedbackCreatorList,
-  getFeedbackCreatorByCreatorId
+  getFeedbackCreatorByCreatorId,
+  getFeedbackCreatorDetail,
+  updateFeedbackCreator,
+  removeFeedbackCreator
 };
