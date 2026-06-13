@@ -11,6 +11,7 @@ import paymentRoutes from "../modules/payments/payment.routes.js";
 import withdrawRoutes from "../modules/withdraw/withdraw.routes.js";
 import financeRoutes from "../modules/finance/finance.routes.js";
 import feedbackRoutes from "../modules/feedback/feedback.routes.js";
+import feedbackCreatorRoutes from "../modules/feedback-creator/feedbackCreator.routes.js";
 
 const router = express.Router();
 
@@ -33,5 +34,6 @@ router.use("/ticket", ticketRoutes);
 router.use("/withdraw", withdrawRoutes);
 router.use("/finance", financeRoutes);
 router.use("/feedback", feedbackRoutes);
+router.use("/feedback-creators", feedbackCreatorRoutes);
 
 export default router;
