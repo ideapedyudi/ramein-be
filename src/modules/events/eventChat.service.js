@@ -57,7 +57,7 @@ const MONTH_ALIASES = new Map([
   ["dec", 12]
 ]);
 
-const REJECTION_REPLY = "Maaf, saya hanya bisa membantu sapaan singkat, menjelaskan kemampuan chat, mencari event berdasarkan bulan, dan menjelaskan detail event berdasarkan nama event.";
+const REJECTION_REPLY = "Maaf, saya hanya bisa membantu sapaan singkat, menjelaskan kemampuan chat, mencari event berdasarkan bulan, menjelaskan detail event berdasarkan nama event, dan rekomendasi event berdasarkan minat/kategori.";
 const EVENT_SEARCH_STOP_WORDS = new Set([
   "ada",
   "apa",
@@ -112,6 +112,54 @@ const UNSUPPORTED_DIRECT_QUESTION_WORDS = new Set([
   "politik"
 ]);
 
+const RECOMMENDATION_STOP_WORDS = new Set([
+  "ada",
+  "apa",
+  "aja",
+  "sih",
+  "dong",
+  "event",
+  "acara",
+  "yang",
+  "di",
+  "bulan",
+  "ini",
+  "tahun",
+  "kamu",
+  "anda",
+  "bisa",
+  "bantu",
+  "cocok",
+  "rekomendasi",
+  "recommend",
+  "saran",
+  "suka",
+  "minat",
+  "interest",
+  "buat",
+  "untuk",
+  "saya",
+  "aku",
+  "gue",
+  "tolong"
+]);
+
+const INTEREST_ALIASES = new Map([
+  ["konser", ["konser", "musik"]],
+  ["musik", ["musik", "konser"]],
+  ["festival", ["festival"]],
+  ["workshop", ["workshop"]],
+  ["seminar", ["seminar"]],
+  ["webinar", ["webinar", "online"]],
+  ["olahraga", ["olahraga", "sport"]],
+  ["sport", ["sport", "olahraga"]],
+  ["kuliner", ["kuliner", "makanan"]],
+  ["makanan", ["makanan", "kuliner"]],
+  ["komunitas", ["komunitas"]],
+  ["pameran", ["pameran", "expo"]],
+  ["expo", ["expo", "pameran"]]
+]);
+
 function sanitizeText(value) {
   return String(value || "")
     .toLowerCase()
@@ -157,6 +205,12 @@ function extractVisitorName(message) {
     "event",
     "acara",
     "konser",
+    "suka",
+    "minat",
+    "cocok",
+    "rekomendasi",
+    "recommend",
+    "saran",
     "bulan",
     "ini",
     "tolong"
@@ -195,7 +249,26 @@ function formatMonthLabel(month, year) {
 function formatDateTimeForDisplay(value) {
   if (!value) return "-";
 
+  if (value instanceof Date) {
+    const parts = new Intl.DateTimeFormat("id-ID", {
+      timeZone: "Asia/Jakarta",
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false
+    }).formatToParts(value);
+    const dateParts = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${dateParts.day} ${titleCase(dateParts.month)} ${dateParts.year} ${dateParts.hour}.${dateParts.minute} WIB`;
+  }
+
   const rawValue = String(value).trim();
+  if (/^\d{4}-\d{2}-\d{2}T/.test(rawValue)) {
+    const parsedDate = new Date(rawValue);
+    if (!Number.isNaN(parsedDate.getTime())) return formatDateTimeForDisplay(parsedDate);
+  }
+
   const match = rawValue.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s+(\d{2}):(\d{2})(?::\d{2})?)?$/);
   if (!match) return rawValue;
 
@@ -248,6 +321,12 @@ function getCheapestTicketLabel(ticketTypes) {
   return `harga tiketnya mulai dari ${formatRupiah(cheapestTicket.price)}`;
 }
 
+function getMinPriceLabel(minPrice) {
+  if (minPrice === null || minPrice === undefined) return "harga tiket belum tersedia";
+  if (Number(minPrice) <= 0) return "gratis";
+  return `mulai dari ${formatRupiah(minPrice)}`;
+}
+
 function summarizeDescription(description) {
   const cleanDescription = String(description || "").replace(/\s+/g, " ").trim();
   if (!cleanDescription) return "Belum ada deskripsi detail untuk event ini.";
@@ -292,6 +371,31 @@ function buildNaturalEventDetailReply(event) {
 
   const selectedVariant = variants[Math.floor(Math.random() * variants.length)];
   return selectedVariant.join("\n");
+}
+
+function buildNaturalRecommendationReply({ events, message }) {
+  const terms = extractRecommendationTerms(message);
+  const interestLabel = terms[0] || "minat kamu";
+
+  if (events.length === 0) {
+    return `Aku belum menemukan event publik yang cocok untuk minat ${interestLabel}. Coba sebutkan kategori lain, misalnya konser, workshop, seminar, festival, atau kuliner.`;
+  }
+
+  const lines = events.map((event, index) => {
+    const date = formatDateTimeForDisplay(event.start_datetime);
+    const price = getMinPriceLabel(event.min_price);
+    const reason = `cocok karena kategorinya ${event.category_name} dan temanya nyambung dengan minat kamu soal ${interestLabel}`;
+    return `${index + 1}. ${event.title} - ${reason}. Acaranya ${date} di ${event.city_name}, tiket ${price}.`;
+  });
+
+  const openings = [
+    `Kalau kamu suka ${interestLabel}, aku rekomendasikan event ini:`,
+    `Buat kamu yang suka ${interestLabel}, ini beberapa event yang paling relevan:`,
+    `Menurutku ini pilihan yang cocok buat kamu karena minatmu ke ${interestLabel}:`
+  ];
+  const opening = openings[Math.floor(Math.random() * openings.length)];
+
+  return `${opening}\n${lines.join("\n")}`;
 }
 
 function isGreetingOnly(message) {
@@ -345,6 +449,13 @@ function detectIntent(message) {
 
   if (isCapabilityQuestion) {
     return { intent: "capabilities" };
+  }
+
+  const isRecommendationQuestion = /\b(event|acara|konser)\b/.test(normalized)
+    && /\b(cocok|rekomendasi|recommend|saran|suka|minat|interest)\b/.test(normalized);
+
+  if (isRecommendationQuestion) {
+    return { intent: "category_recommendation" };
   }
 
   const hasEventKeyword = /\b(event|acara|konser)\b/.test(normalized);
@@ -425,6 +536,25 @@ function extractEventSearchTerms(message) {
     .filter((word) => !MONTH_ALIASES.has(word))
     .filter((word) => !/^20\d{2}$/.test(word))
     .slice(0, 8);
+}
+
+function extractRecommendationTerms(message) {
+  const baseTerms = sanitizeText(message)
+    .split(" ")
+    .filter(Boolean)
+    .filter((term) => !RECOMMENDATION_STOP_WORDS.has(term))
+    .filter((term) => !MONTH_ALIASES.has(term))
+    .filter((term) => !/^20\d{2}$/.test(term))
+    .slice(0, 8);
+  const expandedTerms = new Set(baseTerms);
+
+  for (const term of baseTerms) {
+    const aliases = INTEREST_ALIASES.get(term);
+    if (!aliases) continue;
+    for (const alias of aliases) expandedTerms.add(alias);
+  }
+
+  return Array.from(expandedTerms).slice(0, 8);
 }
 
 function shouldAttemptEventLookup(message) {
@@ -572,6 +702,64 @@ async function findPublicEventByMessage(message) {
   };
 }
 
+async function listRecommendedEventsByInterest(message) {
+  const terms = extractRecommendationTerms(message);
+  if (terms.length === 0) {
+    return [];
+  }
+
+  const clauses = terms.map(() => "(LOWER(c.name) LIKE ? OR LOWER(e.title) LIKE ? OR LOWER(e.description) LIKE ? OR LOWER(e.event_type) LIKE ?)");
+  const values = terms.flatMap((term) => [`%${term}%`, `%${term}%`, `%${term}%`, `%${term}%`]);
+
+  let rows;
+
+  try {
+    rows = await query(
+      `SELECT
+        e.id,
+        e.title,
+        e.description,
+        e.start_datetime,
+        e.address_detail,
+        e.event_type,
+        c.name AS category_name,
+        ci.name AS city_name,
+        o.name AS organizer_name,
+        (
+          SELECT MIN(ett.price)
+          FROM event_ticket_types ett
+          WHERE ett.event_id = e.id
+        ) AS min_price
+      FROM events e
+      JOIN categories c ON c.id = e.category_id
+      JOIN cities ci ON ci.id = e.city_id
+      JOIN organizers o ON o.id = e.organizer_id
+      WHERE e.visibility = 'public'
+        AND e.status = 'published'
+        AND e.is_published = 1
+        AND (${clauses.join(" OR ")})
+      ORDER BY e.start_datetime ASC, e.title ASC
+      LIMIT 5`,
+      values
+    );
+  } catch (error) {
+    handleEventQueryError(error);
+  }
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    start_datetime: row.start_datetime,
+    address_detail: row.address_detail,
+    event_type: row.event_type,
+    category_name: row.category_name,
+    city_name: row.city_name,
+    organizer_name: row.organizer_name,
+    min_price: row.min_price === null ? null : Number(row.min_price)
+  }));
+}
+
 function stripMarkdownFence(value) {
   return value
     .trim()
@@ -588,10 +776,11 @@ function buildFallbackReply({ intent, visitorName, monthLabel, events }) {
 
   if (intent === "capabilities") {
     return [
-      "Saya bisa membantu 3 hal:",
+      "Saya bisa membantu 4 hal:",
       "1. Menjawab sapaan singkat.",
       "2. Menampilkan daftar event berdasarkan bulan, misalnya 'ada event apa aja di bulan Juni ini?'.",
-      "3. Menjelaskan detail event berdasarkan nama event, seperti deskripsi, jadwal, lokasi, dan harga tiket."
+      "3. Menjelaskan detail event berdasarkan nama event, seperti deskripsi, jadwal, lokasi, dan harga tiket.",
+      "4. Merekomendasikan event berdasarkan kategori atau minat kamu, misalnya 'saya suka konser'."
     ].join("\n");
   }
 
@@ -607,6 +796,10 @@ function buildFallbackReply({ intent, visitorName, monthLabel, events }) {
 
     const event = events[0];
     return buildNaturalEventDetailReply(event);
+  }
+
+  if (intent === "category_recommendation") {
+    return buildNaturalRecommendationReply({ events, message: monthLabel || "" });
   }
 
   if (events.length === 0) {
@@ -636,7 +829,7 @@ async function requestOpenRouterReply(payload) {
       },
       body: JSON.stringify({
         model: env.openRouterModel,
-        temperature: payload.intent === "event_detail" ? 0.75 : 0.2,
+        temperature: ["event_detail", "category_recommendation"].includes(payload.intent) ? 0.75 : 0.2,
         max_tokens: 250,
         response_format: {
           type: "json_object"
@@ -651,9 +844,10 @@ async function requestOpenRouterReply(payload) {
               "Jangan mengarang nama event.",
               "Balas wajib dalam JSON valid dengan bentuk: {\"reply\":\"...\"}.",
               "Untuk greeting, kenalkan diri sebagai Mimin yang membantu menemukan event.",
-              "Jika user bertanya kemampuan Anda, jelaskan hanya 3 kemampuan yang tersedia: sapaan, daftar event per bulan, dan detail event berdasarkan nama.",
+              "Jika user bertanya kemampuan Anda, jelaskan hanya kemampuan yang tersedia: sapaan, daftar event per bulan, detail event berdasarkan nama, dan rekomendasi berdasarkan minat/kategori.",
               "Untuk daftar event bulanan, tampilkan nama-nama event dari data yang diberikan.",
               "Untuk detail event, rangkum dengan gaya natural seperti asisten chat, jangan sekadar menyalin field deskripsi mentah.",
+              "Untuk rekomendasi kategori/minat, pilih event dari data yang diberikan dan jelaskan kenapa cocok dengan minat user.",
               "Boleh parafrase dan variasikan gaya jawaban, tetapi fakta harus tetap hanya dari data event yang diberikan.",
               "Jika daftar event kosong, katakan belum ada event publik pada bulan tersebut."
             ].join(" ")
@@ -703,12 +897,21 @@ async function buildAssistantReply({ intent, visitorName, monthLabel, events }) 
     };
   }
 
+  if (intent === "category_recommendation" && events.length === 0) {
+    return {
+      provider: "internal",
+      model: null,
+      reply: buildFallbackReply({ intent, visitorName, monthLabel, events })
+    };
+  }
+
   const openRouterReply = await requestOpenRouterReply({
     intent,
     visitorName,
     monthLabel,
     eventNames: events.map((event) => event.title),
-    eventDetail: events[0]
+    eventDetail: events[0],
+    eventRecommendations: intent === "category_recommendation" ? events : []
   });
 
   if (openRouterReply) {
@@ -815,6 +1018,25 @@ async function chatEventAssistant(payload = {}) {
       provider: reply.provider,
       model: reply.model,
       events: []
+    };
+  }
+
+  if (detectedIntent.intent === "category_recommendation") {
+    const recommendedEvents = await listRecommendedEventsByInterest(message);
+    const reply = await buildAssistantReply({
+      intent: "category_recommendation",
+      visitorName,
+      monthLabel: message,
+      events: recommendedEvents
+    });
+
+    return {
+      accepted: true,
+      intent: "category_recommendation",
+      reply: reply.reply,
+      provider: reply.provider,
+      model: reply.model,
+      events: recommendedEvents
     };
   }
 
