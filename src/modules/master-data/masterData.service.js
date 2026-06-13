@@ -2,6 +2,8 @@ import { query } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
 import { generateId } from "../../utils/id.js";
 
+const DEFAULT_ORGANIZER_ID = "00000000-0000-0000-0000-000000000000";
+
 const tableMap = {
   categories: "categories",
   cities: "cities",
@@ -45,13 +47,17 @@ function normalizeMasterRow(resource, row) {
 
 async function list(resource) {
   const table = getTable(resource);
-  const rows = await query(`SELECT * FROM ${table} ORDER BY created_at DESC`);
+  const rows = resource === "organizers"
+    ? await query(`SELECT * FROM ${table} WHERE id <> ? ORDER BY created_at DESC`, [DEFAULT_ORGANIZER_ID])
+    : await query(`SELECT * FROM ${table} ORDER BY created_at DESC`);
   return rows.map((row) => normalizeMasterRow(resource, row));
 }
 
 async function detail(resource, id) {
   const table = getTable(resource);
-  const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
+  const rows = resource === "organizers"
+    ? await query(`SELECT * FROM ${table} WHERE id = ? AND id <> ? LIMIT 1`, [id, DEFAULT_ORGANIZER_ID])
+    : await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);
   if (rows.length === 0) throw new ApiError(404, "Data not found");
 
   return normalizeMasterRow(resource, rows[0]);
@@ -137,6 +143,10 @@ function buildUpdate(resource, payload) {
 
 async function update(resource, id, payload) {
   const table = getTable(resource);
+  if (resource === "organizers" && id === DEFAULT_ORGANIZER_ID) {
+    throw new ApiError(404, "Data not found");
+  }
+
   const { fields, values } = buildUpdate(resource, payload);
 
   if (fields.length > 0) {
@@ -151,6 +161,10 @@ async function update(resource, id, payload) {
 
 async function remove(resource, id) {
   const table = getTable(resource);
+  if (resource === "organizers" && id === DEFAULT_ORGANIZER_ID) {
+    throw new ApiError(404, "Data not found");
+  }
+
   await query(`UPDATE ${table} SET is_active = 0 WHERE id = ?`, [id]);
 
   const rows = await query(`SELECT * FROM ${table} WHERE id = ? LIMIT 1`, [id]);

@@ -2,7 +2,16 @@ import { query, transaction } from "../../db/mysql.js";
 import ApiError from "../../utils/apiError.js";
 import { generateId } from "../../utils/id.js";
 
+const DEFAULT_ORGANIZER_ID = "00000000-0000-0000-0000-000000000000";
+const DEFAULT_ORGANIZER_NAME = "Default Organizer";
+
+function isDefaultOrganizerId(id) {
+  return id === DEFAULT_ORGANIZER_ID;
+}
+
 function normalizeEventRow(row) {
+  const isDefaultOrganizer = isDefaultOrganizerId(row.organizer_id);
+
   return {
     id: row.id,
     title: row.title,
@@ -37,10 +46,10 @@ function normalizeEventRow(row) {
     },
     organizer: {
       id: row.organizer_id,
-      name: row.organizer_name,
-      contact_name: row.organizer_contact_name,
-      contact_email: row.organizer_contact_email,
-      contact_phone: row.organizer_contact_phone
+      name: isDefaultOrganizer ? null : row.organizer_name,
+      contact_name: isDefaultOrganizer ? null : row.organizer_contact_name,
+      contact_email: isDefaultOrganizer ? null : row.organizer_contact_email,
+      contact_phone: isDefaultOrganizer ? null : row.organizer_contact_phone
     },
     creator: {
       id: row.created_by,
@@ -220,6 +229,38 @@ function validateTicketTypes(ticketTypes) {
     if (!ticket.saleEndAt) {
       throw new ApiError(400, `ticketTypes[${index}].saleEndAt is required`);
     }
+  }
+}
+
+async function ensureOrganizerExists(organizerId) {
+  if (organizerId === undefined || organizerId === null) {
+    return;
+  }
+
+  if (isDefaultOrganizerId(organizerId)) {
+    await query(
+      `INSERT INTO organizers (
+        id,
+        name,
+        description,
+        is_active
+      ) VALUES (?, ?, ?, 1)
+      ON DUPLICATE KEY UPDATE
+        is_active = VALUES(is_active),
+        updated_at = CURRENT_TIMESTAMP`,
+      [DEFAULT_ORGANIZER_ID, DEFAULT_ORGANIZER_NAME, "System organizer for events without organizer"]
+    );
+    return;
+  }
+
+  const organizerRows = await query(
+    "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
+    [organizerId]
+  );
+  const organizer = organizerRows[0];
+
+  if (!organizer || !organizer.is_active) {
+    throw new ApiError(400, "Invalid organizer");
   }
 }
 
@@ -542,14 +583,7 @@ async function listInterestEvents(queryParams = {}) {
 async function createEvent(payload, user) {
   const normalizedPayload = normalizeEventDatePayload(payload);
   validateTicketTypes(normalizedPayload.ticketTypes);
-  const organizerRows = await query(
-    "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
-    [normalizedPayload.organizerId]
-  );
-  const organizer = organizerRows[0];
-  if (!organizer || !organizer.is_active) {
-    throw new ApiError(400, "Invalid organizer");
-  }
+  await ensureOrganizerExists(normalizedPayload.organizerId);
 
   const eventId = generateId();
   const eventType = getPayloadValue(normalizedPayload, "eventType", "event_type");
@@ -794,14 +828,7 @@ async function updateEvent(id, payload, user) {
   if (!canManageEvent(existing, user)) throw new ApiError(403, "Forbidden");
 
   if (normalizedPayload.organizerId !== undefined) {
-    const organizerRows = await query(
-      "SELECT id, is_active FROM organizers WHERE id = ? LIMIT 1",
-      [normalizedPayload.organizerId]
-    );
-    const organizer = organizerRows[0];
-    if (!organizer || !organizer.is_active) {
-      throw new ApiError(400, "Invalid organizer");
-    }
+    await ensureOrganizerExists(normalizedPayload.organizerId);
   }
 
   const { fields, values } = buildEventUpdate(normalizedPayload);
