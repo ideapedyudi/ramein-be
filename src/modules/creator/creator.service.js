@@ -19,6 +19,7 @@ function normalizeCreatorEvent(row) {
     banner: row.banner,
     eventType: row.event_type,
     paymentType: row.payment_type,
+    price: Number(row.price || 0),
     startDateTime: row.start_datetime,
     endDateTime: row.end_datetime,
     status: row.status,
@@ -71,6 +72,7 @@ async function getCreatorEvents(column, id) {
       c.name AS category_name,
       ci.name AS city_name,
       ci.provinsi AS city_provinsi,
+      COALESCE(MIN(ett.price), 0) AS price,
       COALESCE(SUM(ett.sold), 0) AS total_participants
     FROM events e
     JOIN categories c ON c.id = e.category_id
